@@ -32,38 +32,32 @@
 
 ---
 
-## 🚀 快速部署 (Docker)
+## 🚀 快速部署 (小白友好指南)
 
-推荐使用 Docker 进行一键部署，确保环境一致性。
+推荐使用 Docker 进行一键部署。无论你是在 Linux 服务器、群晖/威联通 NAS，还是自己的电脑上，只需要按照以下三步操作即可。
 
-### 1. 准备环境
-确保你的服务器或 NAS 已安装 **Docker** 和 **Docker Compose**。
+### 1. 安装基础环境 (仅需一次)
+如果你的电脑或服务器还没有 Docker，请先安装：
+- **Windows/Mac**: 安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
+- **Linux/NAS**: 参考官方教程安装 `docker` 和 `docker-compose`。
 
-### 2. 配置文件
-项目根目录下已提供 `docker-compose.yml`。你可以根据需要修改端口映射：
-
-```yaml
-version: '3.8'
-services:
-  study-helper-pro:
-    build: .
-    container_name: study-helper-pro
-    ports:
-      - "8866:8000"
-    volumes:
-      - ./data:/app/data
-      - ./static/uploads:/app/static/uploads
-    restart: always
+### 2. 获取项目代码
+打开终端 (Terminal / PowerShell)，运行以下命令：
+```bash
+# 点击右上角绿色的 "Code" 按钮复制地址，或者直接运行这行：
+git clone https://github.com/doge2mars/StudyHelper.git
+cd StudyHelper
 ```
 
-### 3. 启动项目
-在项目目录下运行：
-
+### 3. 一键启动
+在项目目录下直接运行：
 ```bash
 docker compose up -d --build
 ```
 
-启动后访问 `http://your-ip:8866` 即可。
+**部署成功后：**
+- 访问：`http://localhost:8866` (如果是远程服务器，请将 localhost 换成服务器 IP)。
+- **注意**: 如果 8866 端口被占用了，请打开 `docker-compose.yml` 文件，将 `8866:8000` 左边的 `8866` 改成其他数字。
 
 ---
 
@@ -71,6 +65,9 @@ docker compose up -d --build
 | 角色 | 用户名 | 初始密码 |
 | :--- | :--- | :--- |
 | **超级管理员** | `admin` | `admin123` |
+
+> [!TIP]
+> **安全建议**: 首次登录后，请点击导航栏最右侧的按钮进入设置页面，立即修改初始密码。
 
 *注意：登录后请务必前往个人设置页面修改初始密码。*
 
