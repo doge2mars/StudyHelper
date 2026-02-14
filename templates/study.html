@@ -34,6 +34,15 @@
             <!-- Images injected via JS -->
         </div>
 
+        <!-- User Input Area for Fill/Subjective -->
+        <div id="user-input-area" style="display:none; margin-top:1.5rem">
+            <label style="font-weight:600; font-size:0.9rem; color:var(--accent); display:block; margin-bottom:0.5rem">
+                <i class="fas fa-pen"></i> 请在此作答
+            </label>
+            <textarea id="user-answer-text" rows="4" placeholder="在此输入你的答案..."
+                style="width:100%; border:2px solid rgba(0,0,0,0.1); padding:1rem; border-radius:12px; font-size:1rem; resize:vertical"></textarea>
+        </div>
+
         <div id="answer-area"
             style="display: none; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 2rem; margin-top: 1rem;">
             <div style="font-weight: 600; color: var(--success); margin-bottom: 1rem;">
@@ -126,6 +135,12 @@
         qImgsEl.innerHTML = q.q_imgs.map(path => `<img src="${path}" class="q-image">`).join('');
         if (optsHtml) {
             qImgsEl.appendChild(optBox);
+            document.getElementById('user-input-area').style.display = 'none';
+        } else {
+            // Show text input for fill/subjective
+            const inputArea = document.getElementById('user-input-area');
+            inputArea.style.display = 'block';
+            document.getElementById('user-answer-text').value = ''; // Reset
         }
 
         // Render Answer Area
