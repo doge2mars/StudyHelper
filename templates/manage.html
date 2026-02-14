@@ -65,7 +65,7 @@
                         </td>
                         <td style="padding: 1rem; text-align: center;">
                             <div style="display: flex; gap: 0.5rem; justify-content: center;">
-                                <a href="/question/{{ q.id }}/study?single=1" class="btn btn-icon" title="查看详情"><i
+                                <a href="/question/{{ q.id }}" class="btn btn-icon" title="查看详情"><i
                                         class="fas fa-eye"></i></a>
                                 <form action="/api/question/delete/{{ q.id }}" method="POST"
                                     onsubmit="return confirm('确定从题库中永久删除这道题吗？')" style="display: inline;">

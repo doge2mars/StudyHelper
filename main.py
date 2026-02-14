@@ -347,9 +347,14 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
     query = '''
         SELECT q.id FROM questions q 
         LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
-        WHERE q.subject_id = ? AND (q.user_id = ? OR q.id IN (SELECT question_id FROM questions WHERE paper_id IN (SELECT paper_id FROM paper_assignments WHERE user_id = ?)))
+        WHERE q.subject_id = ? 
+        AND (
+            (q.paper_id IS NULL AND q.user_id = ?) 
+            OR 
+            (uqs.wrong_count > 0)
+        )
     '''
-    params = [user['id'], sid, user['id'], user['id']]
+    params = [user['id'], sid, user['id']]
     
     if mode == "error": 
         query += " AND uqs.wrong_count > 0"
