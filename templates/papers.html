@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem">
+    <div>
+        <h1 style="margin:0"><i class="fas fa-file-invoice"></i> 试卷管理中心</h1>
+        <p style="color:#636e72; margin:0.3rem 0 0 0">构建、分享与导入完整的教学资源包</p>
+    </div>
+    <div style="display:flex; gap:1rem">
+        <form action="/api/import" method="POST" enctype="multipart/form-data" id="import-form" style="display:none">
+            <input type="file" name="file" accept=".zip" onchange="document.getElementById('import-form').submit()">
+        </form>
+        <button class="btn" onclick="document.querySelector('#import-form input').click()"
+            style="background:rgba(108, 92, 231, 0.1); color:var(--accent)">
+            <i class="fas fa-file-import"></i> 导入分享包
+        </button>
+        <button class="btn btn-primary" onclick="showAddPaper()">+ 创建新试卷</button>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:1.5rem">
+    {% for p in papers %}
+    <div class="glass-card subject-card"
+        style="{% if p.is_assigned %}border: 1px dashed var(--accent); opacity: 0.95;{% endif %}">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start">
+            <div style="display:flex; gap:0.5rem">
+                <span class="badge" style="background:rgba(108,92,231,0.1); color:var(--accent)">{{ p.s_name }}</span>
+                {% if p.is_assigned %}
+                <span class="badge" style="background:#6c5ce7; color:white"><i class="fas fa-share-alt"></i> 已分发</span>
+                {% endif %}
+            </div>
+            <div style="display:flex; gap:0.5rem">
+                {% if user.role == 'admin' and not p.is_assigned %}
+                <button class="btn btn-icon" style="color:var(--success); background:rgba(0,184,148,0.05)"
+                    onclick="showDistribute({{ p.id }}, '{{ p.name }}')" title="分发给其他用户">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+                <button class="btn btn-icon" style="color:var(--danger); background:rgba(214,48,49,0.05)"
+                    onclick="revokeDistribute({{ p.id }})" title="取消全部分发">
+                    <i class="fas fa-undo"></i>
+                </button>
+                {% endif %}
+                <a href="/api/export/paper/{{ p.id }}" class="btn btn-icon"
+                    style="color:var(--accent); background:rgba(108,92,231,0.05)" title="一键导出 ZIP 分享包">
+                    <i class="fas fa-file-download"></i>
+                </a>
+            </div>
+        </div>
+        <h3 style="margin:1rem 0 0.5rem 0">{{ p.name }}</h3>
+        <p style="color:#636e72; font-size:0.9rem; margin-bottom:1.5rem">{{ p.q_count }} 道录入题目</p>
+        <div style="display:flex; gap:0.5rem; justify-content:center; align-items:center">
+            <a href="/paper/{{ p.id }}" class="btn btn-primary" style="flex:1.2; justify-content:center">查看/编辑</a>
+            <a href="/paper/{{ p.id }}/test" class="btn"
+                style="background:var(--success); color:white; flex:1; justify-content:center">开考</a>
+            {% if not p.is_assigned %}
+            <form action="/paper/delete/{{ p.id }}" method="POST" onsubmit="return confirm('确定要删除整张试卷吗？')"
+                style="display:inline">
+                <button type="submit" class="btn btn-icon" style="color:var(--danger)" title="彻底删除"><i
+                        class="fas fa-trash-alt"></i></button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal: Add Paper -->
+<div id="paper-modal" class="glass-card"
+    style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:1000; width:400px; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <h3 style="margin-top:0">创建新试卷</h3>
+    <form action="/paper/add" method="POST">
+        <div class="form-group">
+            <label>试卷完整名称</label>
+            <input type="text" name="name" required placeholder="例如：2026数学期末A卷">
+        </div>
+        <div class="form-group">
+            <label>对应学科分类</label>
+            <select name="sid" required>
+                {% for s in subjects %}
+                <option value="{{ s.id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div style="display:flex; gap:1rem; margin-top:1rem">
+            <button type="button" class="btn" style="flex:1; background:#f1f2f6" onclick="hideAddPaper()">取消</button>
+            <button type="submit" class="btn btn-primary" style="flex:1">创建</button>
+        </div>
+    </form>
+</div>
+
+<!-- Modal: Distribute Paper -->
+<div id="distribute-modal" class="glass-card"
+    style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:1000; width:400px; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <h3 style="margin-top:0">分发试卷: <span id="dist-paper-name" style="color:var(--accent)"></span></h3>
+    <p style="font-size:0.9rem; color:#636e72; margin-bottom:1.5rem">请选择要分发的目标用户：</p>
+    <div id="user-list"
+        style="margin-bottom:1.5rem; max-height: 200px; overflow-y: auto; padding: 0.5rem; border: 1px solid rgba(0,0,0,0.05); border-radius: 10px;">
+        {% for u in all_users %}
+        <label style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.8rem; cursor:pointer"
+            class="user-item">
+            <input type="checkbox" value="{{ u.id }}" class="user-checkbox" style="width: auto;">
+            <span style="font-weight:600">{{ u.username }}</span>
+        </label>
+        {% endfor %}
+        {% if not all_users %}
+        <p style="text-align:center; color:#999; font-size:0.85rem">暂无其他普通用户</p>
+        {% endif %}
+    </div>
+    <div style="display:flex; gap:1rem">
+        <button type="button" class="btn" style="flex:1; background:#f1f2f6" onclick="hideDistribute()">取消</button>
+        <button type="button" class="btn btn-primary" style="flex:1" onclick="submitDistribute()">确认分发</button>
+    </div>
+</div>
+
+<script>
+    let currentPid = null;
+    function showAddPaper() { document.getElementById('paper-modal').style.display = 'flex'; }
+    function hideAddPaper() { document.getElementById('paper-modal').style.display = 'none'; }
+
+    function showDistribute(pid, name) {
+        currentPid = pid;
+        document.getElementById('dist-paper-name').innerText = name;
+        document.getElementById('distribute-modal').style.display = 'flex';
+    }
+    function hideDistribute() { document.getElementById('distribute-modal').style.display = 'none'; }
+
+    async function submitDistribute() {
+        const selected = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => parseInt(cb.value));
+        if (selected.length === 0) { alert("请至少选择一个用户"); return; }
+
+        const res = await fetch('/admin/distribute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pid: currentPid, uids: selected })
+        });
+        if (res.ok) {
+            showToast("✅ 试卷已分发成功！", true);
+            hideDistribute();
+        } else {
+            showToast("❌ 分发失败", false);
+        }
+    }
+
+    async function revokeDistribute(pid) {
+        if (confirm("确定要取消这份试卷对所有普通用户的分发吗？")) {
+            const res = await fetch(`/admin/revoke/${pid}`, { method: 'POST' });
+            if (res.ok) {
+                showToast("✅ 已取消所有分发", true);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast("❌ 操作失败", false);
+            }
+        }
+    }
+
+    window.onload = function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('msg') === 'import_ok') {
+            showToast("✨ 试卷包已成功导入！", true);
+        }
+    }
+</script>
+
+<style>
+    .subject-card {
+        border: 1px solid transparent;
+        transition: 0.3s ease;
+    }
+
+    .subject-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--accent);
+        box-shadow: 0 10px 30px rgba(108, 92, 231, 0.15);
+    }
+
+    .user-item:hover {
+        background: rgba(108, 92, 231, 0.05);
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="stats-grid">
+    <div class="glass-card stat-item">
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-label">题库总量</div>
+    </div>
+    <div class="glass-card stat-item">
+        <div class="stat-value">{{ stats.today }}</div>
+        <div class="stat-label">今日已做</div>
+    </div>
+    <div class="glass-card stat-item">
+        <div class="stat-value">{{ stats.accuracy }}%</div>
+        <div class="stat-label">综合正确率</div>
+    </div>
+</div>
+
+{% if distributed %}
+<h3 style="margin-top: 3rem; opacity: 0.7;"><i class="fas fa-share-alt"></i> 分发给我的试卷</h3>
+<div style="margin-top:1rem; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:1.5rem">
+    {% for p in distributed %}
+    <div class="glass-card subject-card" onclick="location.href='/paper/{{ p.id }}'">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start">
+            <h2 style="margin:0">{{ p.name }}</h2>
+            <span class="badge" style="background:rgba(0, 184, 148, 0.1); color:var(--success)">来自管理员</span>
+        </div>
+        <div style="margin-top:2rem;">
+            <a href="/paper/{{ p.id }}/test" class="btn btn-primary" style="width: 100%; justify-content:center">
+                <i class="fas fa-graduation-cap"></i> 进入模拟考试
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<h3 style="margin-top: 3rem; opacity: 0.7;"><i class="fas fa-folder"></i> 我的学习库</h3>
+<div style="margin-top:1rem; display:grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap:1.5rem">
+    {% for s in subjects %}
+    <div class="glass-card subject-card" onclick="location.href='/subject/{{ s.id }}'">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start">
+            <h2 style="margin:0">{{ s.name }}</h2>
+            <span class="badge" style="background:rgba(108, 92, 231, 0.1); color:var(--accent)">{{ s.q_count }} 题</span>
+        </div>
+        <div style="margin-top:2rem; display:flex; gap:0.5rem">
+            <a href="/subject/{{ s.id }}/study" class="btn btn-primary" style="flex:1; justify-content:center">
+                <i class="fas fa-play"></i> 开始刷题
+            </a>
+            <a href="/subject/{{ s.id }}/add" class="btn" onclick="event.stopPropagation()" title="手动录入">
+                <i class="fas fa-keyboard"></i>
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    .subject-card {
+        cursor: pointer;
+        transition: 0.3s;
+        border: 1px solid transparent;
+    }
+
+    .subject-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--accent);
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: var(--accent);
+    }
+
+    .stat-label {
+        color: #636e72;
+        font-size: 0.9rem;
+        margin-top: 0.3rem;
+    }
+</style>
+{% endblock %}

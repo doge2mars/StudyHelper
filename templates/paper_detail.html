@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="margin-bottom:2rem; display:flex; justify-content:space-between; align-items:flex-end">
+    <div>
+        <a href="/papers" style="text-decoration:none; color:var(--accent); font-weight:600">← 返回试卷中心</a>
+        <h1 style="margin:0.5rem 0 0 0">
+            {{ paper.name }} ({{ paper.s_name }})
+            {% if not is_owner %}<span class="badge"
+                style="background:#6c5ce7; color:white; font-size:0.8rem; margin-bottom:0.4rem; display:inline-block; vertical-align: middle;">只读/分发</span>{%
+            endif %}
+        </h1>
+    </div>
+    <div style="display:flex; gap:1rem">
+        <a href="/paper/{{ paper.id }}/test" class="btn btn-primary"><i class="fas fa-edit"></i> 模拟考试</a>
+        {% if is_owner %}
+        <a href="/subject/{{ paper.subject_id }}/add?paper_id={{ paper.id }}" class="btn"><i class="fas fa-plus"></i>
+            文字加题</a>
+        {% endif %}
+        <a href="/api/export/paper/{{ paper.id }}" class="btn"><i class="fas fa-file-download"></i> 导出试卷</a>
+    </div>
+</div>
+
+<div class="glass-card" style="padding:0">
+    {% for q in questions %}
+    <div class="q-row"
+        style="padding:1.2rem; border-bottom:1px solid rgba(0,0,0,0.05); display:flex; justify-content:space-between; align-items:center; cursor:pointer"
+        onclick="location.href='/question/{{ q.id }}'">
+        <div style="flex:1">
+            <div style="display:flex; align-items:center; gap:0.8rem">
+                <span style="color:var(--accent); font-weight:bold; min-width:25px">{{ loop.index }}</span>
+                <span class="q-text-link" style="font-weight:600; font-size:1.05rem; color:var(--text)">
+                    {{ q.question_text[:120] or '图示题' }}{% if q.question_text|length > 120 %}...{% endif %}
+                </span>
+                {% if q.is_difficult %}
+                <span class="badge"
+                    style="background:rgba(214, 48, 49, 0.1); color:var(--danger); font-size:0.7rem">难点</span>
+                {% endif %}
+            </div>
+            <div style="margin-top:0.5rem; padding-left:2rem; color:#636e72; font-size:0.9rem">
+                <span>
+                    {% if q.question_type == 'objective' %}单选题
+                    {% elif q.question_type == 'multi' %}多选题
+                    {% elif q.question_type == 'fill' %}填空题
+                    {% elif q.question_type == 'subjective' %}主观题
+                    {% else %}其他{% endif %}
+                </span> | 正确答案: <span style="color:var(--success); font-weight:600">{{ q.correct_answer }}</span>
+            </div>
+        </div>
+        <div style="display:flex; gap:0.8rem">
+            <button class="btn btn-icon" style="color:var(--accent); background:rgba(108,92,231,0.1)"
+                onclick="event.stopPropagation(); cloneToBank({{ q.id }})" title="一键入库（复制到题库管理）">
+                <i class="fas fa-file-import"></i>
+            </button>
+            {% if is_owner %}
+            <button class="btn btn-icon" style="color:var(--danger)"
+                onclick="event.stopPropagation(); del({{ q.id }})"><i class="fas fa-trash-alt"></i></button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% if not questions %}
+    <div style="padding:4rem; text-align:center; color:#999">
+        <i class="fas fa-folder-open" style="font-size:3rem; margin-bottom:1rem; opacity:0.3"></i>
+        <p>试卷内暂无题目</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .q-row:hover {
+        background: rgba(108, 92, 231, 0.03);
+    }
+
+    .q-text-link:hover {
+        color: var(--accent) !important;
+        text-decoration: underline;
+    }
+</style>
+
+<script>
+    async function cloneToBank(id) {
+        if (confirm("确定要将这道题复制到“题库管理”中吗？\n复制后即使管理员取消分发，题目也会保留在你的题库中。")) {
+            const res = await fetch(`/api/clone-to-bank/${id}`, { method: 'POST' });
+            if (res.ok) { showToast("✅ 已成功克隆到个人题库！", true); }
+            else { showToast("❌ 克隆失败", false); }
+        }
+    }
+    async function del(id) {
+        if (confirm("确定删除吗？")) {
+            await fetch(`/api/delete/${id}`, { method: 'POST' });
+            location.reload();
+        }
+    }
+</script>
+{% endblock %}

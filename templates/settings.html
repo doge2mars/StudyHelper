@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="glass-card" style="max-width:700px; margin:auto">
+    <h2 style="margin-bottom:2rem"><i class="fas fa-sliders-h"></i> 系统控制中心</h2>
+
+    <!-- Section 1: User Profile -->
+    <section style="margin-bottom:2.5rem">
+        <h3 style="font-size:1.1rem; opacity:0.8">个人中心</h3>
+        <div class="glass-card" style="background:rgba(255,255,255,0.3); padding:1.2rem">
+            <p style="margin:0 0 1rem 0; font-weight:600">修改登录密码</p>
+            <form action="/api/change-password" method="POST" style="display:flex; flex-direction:column; gap:1rem">
+                <div style="display:flex; gap:1rem">
+                    <input type="password" name="old_pwd" placeholder="当前密码" required style="flex:1">
+                    <input type="password" name="new_pwd" placeholder="新密码" required style="flex:1">
+                </div>
+                <button type="submit" class="btn btn-primary" style="align-self: flex-end;">确认修改</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Section 2: Basic Config -->
+    <section style="margin-bottom:2.5rem">
+        <h3 style="font-size:1.1rem; opacity:0.8">基础配置</h3>
+        <form action="/settings/update" method="POST" class="glass-card"
+            style="background:rgba(255,255,255,0.3); padding:1.2rem">
+            <label style="font-size:0.85rem; font-weight:600; margin-bottom:0.5rem; display:block">软件显示名称</label>
+            <div style="display:flex; gap:1rem">
+                <input type="text" name="app_name" value="{{ app_name }}" required style="flex:1">
+                <button type="submit" class="btn btn-primary">保存</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Section 3: Data Management -->
+    <section style="margin-bottom:2.5rem">
+        <h3 style="font-size:1.1rem; opacity:0.8">数据管理 (危险区)</h3>
+        <div class="glass-card" style="background:rgba(108, 92, 231, 0.05); padding:1.2rem">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem">
+                <div>
+                    <p style="margin:0; font-weight:600">全库备份导出</p>
+                    <small style="color:#636e72">下载 ZIP 包，包含所有题目数据及图片</small>
+                </div>
+                <a href="/api/backup" class="btn btn-primary"><i class="fas fa-file-export"></i> 立即导出</a>
+            </div>
+
+            <div style="padding-top:1.5rem; border-top:1px solid rgba(0,0,0,0.1)">
+                <p style="margin:0 0 1rem 0; font-weight:600">恢复备份 / 合并数据</p>
+                <form action="/api/restore" method="POST" enctype="multipart/form-data"
+                    onsubmit="return confirm('注意：将执行智能合并，跳过重复项，增加新项。确定继续吗？')">
+                    <div style="display:flex; gap:0.5rem">
+                        <input type="file" name="file" accept=".zip" required style="font-size:0.8rem">
+                        <button type="submit" class="btn"
+                            style="background:var(--accent); color:white; white-space:nowrap">上传同步</button>
+                    </div>
+                </form>
+            </div>
+
+            <div
+                style="padding-top:1.5rem; border-top:1px solid rgba(0,0,0,0.1); margin-top:1.5rem; display:flex; justify-content:space-between; align-items:center">
+                <div>
+                    <p style="margin:0; font-weight:600">战绩归零</p>
+                    <small style="color:#636e72">仅清除做题历史记录，保留题库</small>
+                </div>
+                <button onclick="resetStats()" class="btn"
+                    style="background:rgba(214, 48, 49, 0.1); color:var(--danger)"><i class="fas fa-broom"></i>
+                    清空统计</button>
+            </div>
+
+            <div
+                style="padding-top:1.5rem; border-top:1px solid var(--danger); margin-top:1.5rem; display:flex; justify-content:space-between; align-items:center">
+                <div>
+                    <p style="margin:0; font-weight:600; color:var(--danger)">核弹级重置</p>
+                    <small style="color:var(--danger)">彻底清空所有题目、科目、记录和图片</small>
+                </div>
+                <button onclick="nuclearReset()" class="btn" style="background:var(--danger); color:white"><i
+                        class="fas fa-radiation"></i> 彻底清空</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Subject Management -->
+    <section style="margin-bottom:2.5rem">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem">
+            <h3 style="font-size:1.1rem; opacity:0.8; margin:0">科目分类管理</h3>
+            <button class="btn btn-primary" style="padding:0.4rem 0.8rem; font-size:0.85rem" onclick="addSubject()">+
+                新增科目</button>
+        </div>
+        <div class="glass-card" style="padding:0">
+            <table style="width:100%">
+                {% for s in subjects %}
+                <tr style="border-bottom:1px solid rgba(0,0,0,0.05)">
+                    <td style="padding:1rem; font-weight:600">{{ s.name }}</td>
+                    <td style="text-align:right; padding:1rem">
+                        <form action="/subject/delete/{{ s.id }}" method="POST" onsubmit="return confirm('确定删除该科目吗？')"
+                            style="display:inline">
+                            <button type="submit" class="btn btn-icon" style="color:var(--danger)"><i
+                                    class="fas fa-trash-alt"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </section>
+
+    <!-- Section 5: About -->
+    <section>
+        <h3 style="font-size:1.1rem; opacity:0.8">关于软件</h3>
+        <div class="glass-card" style="text-align:center; padding:2rem">
+            <div
+                style="font-size:1.4rem; font-weight:700; background:var(--primary); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:0.5rem">
+                {{ app_name }}
+            </div>
+            <div style="font-size:0.9rem; color:var(--accent); font-weight:600; margin-bottom:1.5rem">Study Helper Pro
+                V1.2 Final</div>
+            <p style="font-size:0.9rem; color:#636e72; line-height:1.7; text-align:left; margin-bottom:2rem">
+                专为家庭教育设计的智能助学系统。支持试卷切题、多端同步、错题强化练习，帮助孩子高效攻克知识薄弱点。
+            </p>
+            <div style="display:flex; justify-content:center; gap:3rem; align-items:center">
+                <div style="text-align:center">
+                    <div
+                        style="width:100px; height:100px; background:#f0f2f5; border-radius:12px; display:flex; align-items:center; justify-content:center; border:1px solid rgba(0,0,0,0.1); margin-bottom:0.5rem">
+                        <i class="fab fa-weixin" style="font-size:3rem; color:#07c160"></i>
+                    </div>
+                    <small style="color:#636e72">联系作者</small>
+                </div>
+                <div style="text-align:left">
+                    <p style="margin:0 0 0.5rem 0; font-size:0.9rem"><b>技术支持：</b> antigravity</p>
+                    <p style="margin:0; font-size:0.9rem"><b>作者：</b> <a href="https://github.com/doge2mars"
+                            target="_blank" style="color:var(--accent); text-decoration:none">doge2mars</a></p>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+    async function nuclearReset() {
+        const input = prompt('ðŸš¨ 警告：此操作将永久删除全库所有题目、图片和科目！\n\n如果确定要执行【核弹级清空】，请在下方输入“确认”二字：');
+        if (input === '确认') {
+            await fetch('/api/nuclear-reset', { method: 'POST' });
+            location.href = '/settings?msg=nuclear_ok';
+        } else if (input !== null) {
+            alert('验证失败，操作已取消。');
+        }
+    }
+
+    async function resetStats() {
+        if (confirm('仅清空做题记录统计，保留库内题目。确定吗？')) {
+            await fetch('/api/reset-stats', { method: 'POST' });
+            location.href = '/settings?msg=reset_ok';
+        }
+    }
+
+    window.onload = function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('msg') === 'restore_ok') {
+            showToast("✅ 备份已合并完成！", true);
+        } else if (urlParams.get('msg') === 'reset_ok') {
+            showToast("✨ 统计已归零", true);
+        } else if (urlParams.get('msg') === 'nuclear_ok') {
+            showToast("ðŸ”¥ 系统已彻底清空，焕然一新", true);
+        } else if (urlParams.get('msg') === 'pwd_ok') {
+            showToast("✅ 密码修改成功！", true);
+        } else if (urlParams.get('msg') === 'pwd_err') {
+            showToast("❌ 密码修改失败，请检查旧密码", false);
+        }
+    }
+
+    function addSubject() {
+        const name = prompt("请输入新科目名称：");
+        if (name && name.trim()) {
+            const f = document.createElement('form');
+            f.method = 'POST'; f.action = '/subject/add';
+            const i = document.createElement('input');
+            i.name = 'name'; i.value = name.trim();
+            f.appendChild(i); document.body.appendChild(f);
+            f.submit();
+        }
+    }
+</script>
+{% endblock %}

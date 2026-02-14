@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card: rgba(255, 255, 255, 0.9);
+            --text: #1a1a2e;
+            --primary: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            --accent: #6c5ce7;
+            --success: #00b894;
+            --danger: #d63031;
+            --glass: blur(10px);
+        }
+
+        body.dark {
+            --bg: #0f0c29;
+            --card: rgba(30, 39, 46, 0.8);
+            --text: #f1f2f6;
+            --primary: linear-gradient(135deg, #341f97, #54a0ff);
+            --accent: #54a0ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+            transition: 0.2s;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: var(--card);
+            backdrop-filter: var(--glass);
+            padding: 0.8rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.4rem;
+            font-weight: 600;
+            background: var(--primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .glass-card {
+            background: var(--card);
+            backdrop-filter: var(--glass);
+            border-radius: 20px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn {
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+        }
+
+        .btn-icon {
+            background: none;
+            padding: 0.5rem;
+            border-radius: 50%;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.5);
+            font-size: 1rem;
+        }
+
+        .q-image {
+            max-width: 100%;
+            border-radius: 15px;
+            margin: 1rem 0;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .opt-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .opt {
+            padding: 1rem;
+            border-radius: 15px;
+            border: 2px solid #dfe6e9;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .opt:hover {
+            border-color: var(--accent);
+            background: rgba(108, 92, 231, 0.05);
+        }
+
+        .opt.correct {
+            background: #00b894;
+            color: white;
+            border-color: #00b894;
+        }
+
+        .opt.wrong {
+            background: #d63031;
+            color: white;
+            border-color: #d63031;
+        }
+
+        .badge {
+            padding: 0.3rem 0.6rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 50px;
+            padding: 16px;
+            position: fixed;
+            z-index: 1000;
+            left: 50%;
+            bottom: 30px;
+            transform: translateX(-50%);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        #toast.show {
+            visibility: visible;
+            animation: fadein 0.5s, fadeout 0.5s 2.5s;
+        }
+
+        @keyframes pop {
+            from {
+                transform: scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadein {
+            from {
+                bottom: 0;
+                opacity: 0;
+            }
+
+            to {
+                bottom: 30px;
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeout {
+            from {
+                bottom: 30px;
+                opacity: 1;
+            }
+
+            to {
+                bottom: 0;
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="{% if request.cookies.get('theme') == 'dark' %}dark{% endif %}">
+    <nav class="navbar">
+        <a href="/" class="logo">Study Helper <span style="font-size: 0.7rem; opacity: 0.5;">PRO V1.2</span></a>
+        <div class="nav-links">
+            <a href="/papers"><i class="fas fa-file-invoice"></i> 试卷中心</a>
+            <a href="/paper-entry"><i class="fas fa-plus"></i> 试卷录入</a>
+            <a href="/manage"><i class="fas fa-tasks"></i> 题库管理</a>
+            {% if user and user.role == 'admin' %}
+            <a href="/admin/users" style="color: var(--accent);"><i class="fas fa-users-cog"></i> 管理员</a>
+            {% endif %}
+            <a href="/settings"><i class="fas fa-cog"></i></a>
+
+            {% if user %}
+            <div
+                style="display: flex; align-items: center; gap: 0.8rem; border-left: 1px solid rgba(0,0,0,0.1); padding-left: 1.2rem; margin-left: 0.5rem;">
+                <span style="font-size: 0.8rem; font-weight: 600;">{{ user.username }}</span>
+                <a href="/logout" title="退出" style="opacity: 0.6;"><i class="fas fa-sign-out-alt"></i></a>
+            </div>
+            {% endif %}
+            <button class="btn btn-icon" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    <div id="toast"></div>
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('dark');
+            document.cookie = `theme=${body.classList.contains('dark') ? 'dark' : 'light'};path=/`;
+        }
+        function showToast(msg, ok = true) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.background = ok ? '#00b894' : '#d63031';
+            t.className = 'show';
+            setTimeout(() => { t.className = t.className.replace('show', ''); }, 3000);
+        }
+    </script>
+</body>
+
+</html>

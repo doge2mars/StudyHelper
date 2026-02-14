@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+pillow
+pillow-heif
+pdf2image
+passlib[bcrypt]
+python-jose[cryptography]
+python-dotenv
