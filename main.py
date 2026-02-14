@@ -242,15 +242,12 @@ async def index(request: Request):
     subs = c.execute('''
         SELECT s.*, 
             (SELECT COUNT(DISTINCT q.id) FROM questions q 
-             LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id AND pa.user_id = ?
-             WHERE q.subject_id = s.id AND (q.user_id = ? OR pa.user_id = ?)
+             WHERE q.subject_id = s.id AND q.user_id = ?
             ) as q_count 
         FROM subjects s 
-        WHERE s.user_id = ? 
-           OR s.id IN (SELECT DISTINCT p.subject_id FROM paper_assignments pa JOIN papers p ON pa.paper_id = p.id WHERE pa.user_id = ?)
-        GROUP BY s.id
+        WHERE s.user_id = ?
         ORDER BY s.name
-    ''', (user['id'], user['id'], user['id'], user['id'], user['id'])).fetchall()
+    ''', (user['id'], user['id'])).fetchall()
     
     distributed = c.execute('''SELECT p.*, s.name as s_name FROM paper_assignments pa 
                                 JOIN papers p ON pa.paper_id = p.id 
@@ -281,8 +278,9 @@ async def subject_detail(request: Request, sid: int):
     conn = get_db()
     s = conn.execute("SELECT * FROM subjects WHERE id = ? AND user_id = ?", (sid, user['id'])).fetchone()
     if not s: conn.close(); raise HTTPException(404)
-    # Filter: Show questions if (paper_id IS NULL) OR (wrong_count > 0)
-    qs = conn.execute("SELECT * FROM questions WHERE subject_id = ? AND user_id = ? AND (paper_id IS NULL OR id IN (SELECT question_id FROM user_question_status WHERE user_id = ? AND wrong_count > 0)) ORDER BY created_at DESC", (sid, user['id'], user['id'])).fetchall()
+    # Filter: Show questions if user_id matches (Pure Bank)
+    # Exclude raw paper questions even if wrong. Only manually added/cloned questions.
+    qs = conn.execute("SELECT * FROM questions WHERE subject_id = ? AND user_id = ? ORDER BY created_at DESC", (sid, user['id'])).fetchall()
     conn.close()
     return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": [dict(q) for q in qs]})
 
@@ -348,11 +346,7 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
         SELECT q.id FROM questions q 
         LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
         WHERE q.subject_id = ? 
-        AND (
-            (q.paper_id IS NULL AND q.user_id = ?) 
-            OR 
-            (uqs.wrong_count > 0)
-        )
+        AND q.user_id = ?
     '''
     params = [user['id'], sid, user['id']]
     
@@ -565,7 +559,14 @@ async def manage(request: Request, sid: Optional[int] = None):
     user = await get_current_user(request)
     if not user: return RedirectResponse("/login", status_code=303)
     conn = get_db(); subs = conn.execute("SELECT * FROM subjects WHERE user_id = ? ORDER BY name", (user['id'],)).fetchall()
-    q_str = 'SELECT q.*, s.name as s_name FROM questions q JOIN subjects s ON q.subject_id = s.id WHERE q.paper_id IS NULL AND q.user_id = ?'; params = [user['id']]
+    q_str = '''
+        SELECT q.*, s.name as s_name, uqs.is_difficult 
+        FROM questions q 
+        JOIN subjects s ON q.subject_id = s.id 
+        LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ? 
+        WHERE q.paper_id IS NULL AND q.user_id = ?
+    '''
+    params = [user['id'], user['id']]
     if sid: q_str += " AND q.subject_id = ?"; params.append(sid)
     qs = conn.execute(q_str + " ORDER BY q.created_at DESC", params).fetchall()
     conn.close(); return templates.TemplateResponse("manage.html", {"request": request, "app_name": get_app_name(), "user": user, "questions": [dict(q) for q in qs], "subjects": [dict(s) for s in subs], "current_sid": sid})
@@ -639,7 +640,7 @@ async def record(request: Request):
     # Update per-user status
     cur.execute("INSERT OR IGNORE INTO user_question_status (user_id, question_id) VALUES (?, ?)", (user['id'], qid))
     if ok:
-        cur.execute("UPDATE user_question_status SET wrong_count = 0, is_difficult = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+        cur.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
     else:
         cur.execute("UPDATE user_question_status SET wrong_count = wrong_count + 1 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
         cur.execute("UPDATE user_question_status SET is_difficult = 1 WHERE user_id = ? AND question_id = ? AND wrong_count >= 2", (user['id'], qid))
