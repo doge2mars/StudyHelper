@@ -191,10 +191,10 @@ def get_question_data(conn, q_id, user_id=None):
     if user_id:
         q = conn.execute('''
             SELECT q.*, 
-                   uqs.id as uqs_id,
                    COALESCE(uqs.wrong_count, 0) as user_wrong_count,
                    COALESCE(uqs.history_wrong, 0) as user_history_wrong,
-                   COALESCE(uqs.is_difficult, 0) as user_is_difficult
+                   COALESCE(uqs.is_difficult, 0) as user_is_difficult,
+                   uqs.user_id as uqs_user_id
             FROM questions q 
             LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id AND pa.user_id = ?
             LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
@@ -210,7 +210,7 @@ def get_question_data(conn, q_id, user_id=None):
         d['wrong_count'] = d['user_wrong_count']
         d['history_wrong'] = d['user_history_wrong']
         d['is_difficult'] = d['user_is_difficult']
-        d['has_record'] = d['uqs_id'] is not None
+        d['has_record'] = d['uqs_user_id'] is not None
     
     d['q_imgs'] = [f"/static/uploads/{os.path.basename(r['path'])}" for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "question"', (q_id,)).fetchall()]
     d['a_imgs'] = [f"/static/uploads/{os.path.basename(r['path'])}" for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "answer"', (q_id,)).fetchall()]
@@ -636,16 +636,27 @@ async def paper_test(request: Request, pid: int):
     user = await get_current_user(request)
     if not user: return RedirectResponse("/login", status_code=303)
     conn = get_db()
-    p = conn.execute('''
-        SELECT p.* FROM papers p 
-        LEFT JOIN paper_assignments pa ON p.id = pa.paper_id
-        WHERE p.id = ? AND (p.user_id = ? OR pa.user_id = ?)
-    ''', (pid, user['id'], user['id'])).fetchone()
-    if not p: conn.close(); raise HTTPException(404)
-    ids = [r['id'] for r in conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()]
-    questions = [get_question_data(conn, qid, user['id']) for qid in ids]
-    conn.close()
-    return templates.TemplateResponse("study.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": {"name": p['name'], "id": p['id']}, "questions": questions, "is_paper": True})
+    try:
+        p = conn.execute('''
+            SELECT p.* FROM papers p 
+            LEFT JOIN paper_assignments pa ON p.id = pa.paper_id
+            WHERE p.id = ? AND (p.user_id = ? OR pa.user_id = ?)
+        ''', (pid, user['id'], user['id'])).fetchone()
+        
+        if not p: 
+            conn.close()
+            return HTMLResponse("<h1>Access Denied or Not Found / 无权访问或试卷不存在</h1>", status_code=404)
+
+        ids = [r['id'] for r in conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()]
+        questions = [get_question_data(conn, qid, user['id']) for qid in ids]
+        questions = [q for q in questions if q]
+        
+        conn.close()
+        # V1.3.9: Pass mode='paper_test' to distinguish in template if needed
+        return templates.TemplateResponse("study.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": {"name": p['name'], "id": p['subject_id']}, "questions": questions, "mode": "paper_test", "is_paper": True})
+    except Exception as e:
+        conn.close()
+        return HTMLResponse(content=f"<h1>Error in Paper Test</h1><pre>{e}</pre>", status_code=500)
 
 @app.get("/manage", response_class=HTMLResponse)
 async def manage(request: Request, sid: Optional[int] = None):
