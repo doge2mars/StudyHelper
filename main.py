@@ -12,7 +12,7 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-app = FastAPI(title='Study Helper Pro V1.2.5')
+app = FastAPI(title='Study Helper Pro V1.2.6')
 pillow_heif.register_heif_opener()
 
 # Security & Auth
@@ -411,16 +411,29 @@ async def slice_save(request: Request):
     user = await get_current_user(request)
     if not user: return JSONResponse({"error": "Unauthorized"}, status_code=401)
     data = await request.json()
-    img_data = data['img'].split(",")[1]; uid = uuid.uuid4().hex; img_name = f"{uid}.webp"; tmp = os.path.join(TEMP_DIR, f"{uid}.jpg")
-    with open(tmp, "wb") as f: f.write(base64.b64decode(img_data))
-    Image.open(tmp).save(os.path.join(UPLOAD_DIR, img_name), "WEBP", quality=85)
-    os.remove(tmp)
-    conn = get_db(); cur = conn.cursor(); source = data.get('source')
-    if data.get('pid'):
-        p = conn.execute("SELECT name FROM papers WHERE id = ? AND user_id = ?", (data['pid'], user['id'])).fetchone()
-        if p and not source: source = p['name']
-    cur.execute('INSERT INTO questions (subject_id, paper_id, user_id, question_text, question_type, correct_answer, option_a, option_b, option_c, option_d, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)', (data['sid'], data.get('pid'), user['id'], data.get('text'), data['type'], data['ans'], data.get('a'), data.get('b'), data.get('c'), data.get('d'), source))
-    qid = cur.lastrowid; cur.execute('INSERT INTO question_images (question_id, path, image_type) VALUES (?,?,?)', (qid, img_name, 'question'))
+    sid, pid, q_text, q_type, q_ans, rect, cw, ch, page = data['sid'], data.get('pid'), data.get('text', ''), data['type'], data.get('ans', ''), data['rect'], data['canvas_w'], data['canvas_h'], data['page']
+    
+    # New options support
+    opt_a, opt_b, opt_c, opt_d = data.get('a'), data.get('b'), data.get('c'), data.get('d')
+    source = data.get('source', '')
+
+    user_pdf = os.path.join(TEMP_DIR, f"pdf_{user['id']}.pdf")
+    if not os.path.exists(user_pdf): return JSONResponse({"error": "No PDF"}, status_code=400)
+    
+    imgs = convert_from_path(user_pdf, first_page=page, last_page=page)
+    img = imgs[0]
+    rx = img.width / cw; ry = img.height / ch
+    crop_rect = (rect['left']*rx, rect['top']*ry, (rect['left']+rect['width'])*rx, (rect['top']+rect['height'])*ry)
+    cropped = img.crop(crop_rect)
+    
+    uid = uuid.uuid4().hex; img_name = f"{uid}.webp"
+    cropped.convert('RGB').save(os.path.join(UPLOAD_DIR, img_name), "WEBP", quality=80)
+    
+    conn = get_db(); cur = conn.cursor()
+    cur.execute('INSERT INTO questions (subject_id, paper_id, user_id, question_text, question_type, correct_answer, option_a, option_b, option_c, option_d, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)', 
+                (sid, pid, user['id'], q_text, q_type, q_ans, opt_a, opt_b, opt_c, opt_d, source))
+    qid = cur.lastrowid
+    cur.execute('INSERT INTO question_images (question_id, path, image_type) VALUES (?,?,?)', (qid, img_name, 'question'))
     conn.commit(); conn.close(); return {"status": "ok"}
 
 @app.get("/papers", response_class=HTMLResponse)

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div>
+        <h1 style="margin: 0;"><i class="fas fa-folder-open"></i> {{ subject.name }}</h1>
+        <p style="color: #636e72; margin-top: 0.3rem;">查看该科目下的所有题目及近期错题</p>
+    </div>
+    <div style="display: flex; gap: 1rem;">
+        <a href="/subject/{{ subject.id }}/add" class="btn btn-primary">
+            <i class="fas fa-plus"></i> 手动录题
+        </a>
+        <a href="/subject/{{ subject.id }}/study" class="btn" style="background: var(--success); color: white;">
+            <i class="fas fa-play"></i> 开始刷题
+        </a>
+    </div>
+</div>
+
+<div class="glass-card" style="padding: 0; overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 2px solid rgba(0,0,0,0.05); background: rgba(0,0,0,0.02);">
+                <th style="padding: 1.2rem; text-align: left;">题目内容</th>
+                <th style="padding: 1.2rem; text-align: center; width: 120px;">状态</th>
+                <th style="padding: 1.2rem; text-align: center; width: 120px;">类型</th>
+                <th style="padding: 1.2rem; text-align: center; width: 150px;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in questions %}
+            <tr style="border-bottom: 1px solid rgba(0,0,0,0.05); transition: 0.3s;"
+                onmouseover="this.style.background='rgba(108, 92, 231, 0.03)'"
+                onmouseout="this.style.background='transparent'">
+                <td style="padding: 1.2rem;">
+                    <div style="font-weight: 500; margin-bottom: 0.3rem;">
+                        {{ q.question_text[:100] }}{% if q.question_text|length > 100 %}...{% endif %}
+                        {% if not q.question_text %}（图示题）{% endif %}
+                    </div>
+                    {% if q.source %}
+                    <div style="font-size: 0.8rem; opacity: 0.5;">来源: {{ q.source }}</div>
+                    {% endif %}
+                </td>
+                <td style="padding: 1.2rem; text-align: center;">
+                    {% if q.is_difficult %}
+                    <span class="badge" style="background: rgba(214, 48, 49, 0.1); color: var(--danger);">⭐ 困难</span>
+                    {% elif q.wrong_count > 0 %}
+                    <span class="badge" style="background: rgba(255, 118, 117, 0.1); color: #d63031;">错 {{ q.wrong_count
+                        }} 次</span>
+                    {% else %}
+                    <span class="badge" style="background: rgba(0, 184, 148, 0.1); color: var(--success);">掌握</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1.2rem; text-align: center;">
+                    <span style="font-size: 0.85rem; opacity: 0.7;">
+                        {% if q.question_type == 'objective' %}单选
+                        {% elif q.question_type == 'multi' %}多选
+                        {% elif q.question_type == 'fill' %}填空
+                        {% else %}大题{% endif %}
+                    </span>
+                </td>
+                <td style="padding: 1.2rem; text-align: center;">
+                    <div style="display: flex; gap: 0.6rem; justify-content: center;">
+                        <a href="/question/{{ q.id }}/study?single=1" class="btn btn-icon" title="预览题目">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <form action="/api/delete/{{ q.id }}" method="POST" onsubmit="return confirm('确定要删除这道题吗？')"
+                            style="display: inline;">
+                            <button type="submit" class="btn btn-icon" style="color: var(--danger);" title="删除">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="padding: 5rem; text-align: center; opacity: 0.5;">
+                    <i class="fas fa-ghost" style="font-size: 4rem; display: block; margin-bottom: 1.5rem;"></i>
+                    该科目下还没有题目，快去录入第一道题吧！
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -128,8 +128,17 @@
         }
 
         // Render Answer Area
-        let aHtml = `<div style="margin-bottom: 1.5rem; font-size: 1.1rem;">正确答案: <span style="color:var(--success); font-weight:700">${q.correct_answer}</span></div>`;
+        let aHtml = '';
+        if (q.correct_answer && q.correct_answer.trim()) {
+            aHtml += `<div style="margin-bottom: 1.5rem; font-size: 1.1rem;">标准答案: <span style="color:var(--success); font-weight:700">${q.correct_answer}</span></div>`;
+        }
+        if (q.q_text && q.q_text.includes('【解析】')) {
+            // If parsed text available
+        }
         aHtml += q.a_imgs.map(path => `<img src="${path}" class="q-image">`).join('');
+        if (!aHtml && !q.correct_answer) {
+            aHtml = '<div style="opacity:0.5; text-align:center; padding:1rem">该题目未录入文字答案或解析图</div>';
+        }
         aImgsEl.innerHTML = aHtml;
 
         // Progress

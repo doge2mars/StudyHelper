@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="glass-card" style="max-width: 800px; margin: 0 auto; padding: 2.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 style="margin: 0;"><i class="fas fa-plus-circle"></i> 录入新题目 - {{ subject.name }}</h2>
+        <a href="/subject/{{ subject.id }}" class="btn"><i class="fas fa-arrow-left"></i> 返回</a>
+    </div>
+
+    <form action="/subject/{{ subject.id }}/add" method="POST" enctype="multipart/form-data" id="add-form">
+        <div class="form-group">
+            <label>题目文本 (可选)</label>
+            <textarea name="q_text" rows="4" placeholder="在此输入题目文字描述..."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="form-group">
+                <label>题目类型</label>
+                <select name="q_type" id="q_type" onchange="toggleOptions()">
+                    <option value="objective" selected>单选题</option>
+                    <option value="multi">多选题</option>
+                    <option value="fill">填空题</option>
+                    <option value="subjective">主观题/解答题</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>标准答案</label>
+                <input type="text" name="ans" placeholder="例: A 或 ABCD">
+            </div>
+        </div>
+
+        <!-- Options Section -->
+        <div id="options-section"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; background: rgba(0,0,0,0.02); padding: 1.5rem; border-radius: 15px;">
+            <div class="form-group" style="margin:0">
+                <label>选项 A</label>
+                <input type="text" name="a">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>选项 B</label>
+                <input type="text" name="b">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>选项 C</label>
+                <input type="text" name="c">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>选项 D</label>
+                <input type="text" name="d">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>题目图片 (支持多张)</label>
+            <input type="file" name="q_images" multiple accept="image/*">
+        </div>
+
+        <div class="form-group">
+            <label>解答/解析图片 (支持多张)</label>
+            <input type="file" name="a_images" multiple accept="image/*">
+        </div>
+
+        <div class="form-group">
+            <label>来源备注 (可选)</label>
+            <input type="text" name="source" placeholder="例: 2023年期末考试第5题">
+        </div>
+
+        <input type="hidden" name="paper_id" value="{{ request.query_params.get('pid', '') }}">
+
+        <div style="margin-top: 2rem;">
+            <button type="submit" class="btn btn-primary"
+                style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem;">
+                <i class="fas fa-save"></i> 立即保存并入库
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    function toggleOptions() {
+        const type = document.getElementById('q_type').value;
+        const section = document.getElementById('options-section');
+        section.style.display = (type === 'objective' || type === 'multi') ? 'grid' : 'none';
+    }
+    // Init
+    toggleOptions();
+</script>
+{% endblock %}
