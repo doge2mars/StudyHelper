@@ -35,11 +35,11 @@
 </div>
 
 <script>
-function startStudy() {
-    const mode = document.getElementById('studyMode').value;
-    const type = document.getElementById('qType').value;
-    window.location.href = `/subject/{{ subject.id }}/study?mode=${mode}&qtype=${type}`;
-}
+    function startStudy() {
+        const mode = document.getElementById('studyMode').value;
+        const type = document.getElementById('qType').value;
+        window.location.href = `/subject/{{ subject.id }}/study?mode=${mode}&qtype=${type}`;
+    }
 </script>
 
 <div class="glass-card" style="padding: 0; overflow: hidden;">
@@ -67,12 +67,19 @@ function startStudy() {
                     {% endif %}
                 </td>
                 <td style="padding: 1.2rem; text-align: center;">
-                    {% if q.is_difficult %}
-                    <span class="badge" style="background: rgba(214, 48, 49, 0.1); color: var(--danger);">⭐ 困难</span>
-                    {% elif q.wrong_count > 0 %}
+                    {% if q.wrong_count and q.wrong_count > 0 %}
                     <span class="badge" style="background: rgba(255, 118, 117, 0.1); color: #d63031;">错 {{ q.wrong_count
                         }} 次</span>
-                    {% else %}
+                    {% elif q.history_wrong == 1 %}
+                    <span class="badge" style="background: rgba(255, 159, 67, 0.1); color: #e67e22;"
+                        title="曾做错">曾错</span>
+                    {% endif %}
+
+                    {% if q.is_difficult %}
+                    <span class="badge" style="background: rgba(214, 48, 49, 0.1); color: var(--danger);">⭐ 困难</span>
+                    {% endif %}
+
+                    {% if not q.wrong_count and not q.history_wrong and not q.is_difficult %}
                     <span class="badge" style="background: rgba(0, 184, 148, 0.1); color: var(--success);">掌握</span>
                     {% endif %}
                 </td>

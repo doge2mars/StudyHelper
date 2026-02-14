@@ -279,16 +279,20 @@ async def subject_detail(request: Request, sid: int):
     s = conn.execute("SELECT * FROM subjects WHERE id = ? AND user_id = ?", (sid, user['id'])).fetchone()
     if not s: conn.close(); raise HTTPException(404)
     # Filter: Pure Bank (Owned & No Paper) OR Active Errors (from any source)
+    # V1.3.1 Logic + V1.3.3 Persistent Error
+    # Show owned questions OR (paper questions IF they have wrong/difficult/history status)
     qs = conn.execute('''
-        SELECT * FROM questions 
-        WHERE subject_id = ? 
+        SELECT q.*, uqs.wrong_count, uqs.is_difficult, uqs.history_wrong 
+        FROM questions q
+        LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
+        WHERE q.subject_id = ? 
         AND (
-            (user_id = ? AND paper_id IS NULL) 
+            (q.user_id = ? AND q.paper_id IS NULL) 
             OR 
-            (id IN (SELECT question_id FROM user_question_status WHERE user_id = ? AND (wrong_count > 0 OR is_difficult = 1)))
+            (uqs.wrong_count > 0 OR uqs.is_difficult = 1 OR uqs.history_wrong = 1)
         )
-        ORDER BY created_at DESC
-    ''', (sid, user['id'], user['id'])).fetchall()
+        ORDER BY q.created_at DESC
+    ''', (user['id'], sid, user['id'])).fetchall()
     conn.close()
     return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": [dict(q) for q in qs]})
 
@@ -369,21 +373,24 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
     
     # 2. Mode Filter
     if mode == "error": 
+        # Error mode should probably focus on CURRENTLY wrong, but maybe user wants historical too?
+        # User said "1.刷完的题没有错... 错会取消". 
+        # If "Error Mode" is for drilling mistakes, it makes sense to drill CURRENT MISTAKES (`wrong_count > 0`).
+        # If they want to review OLD mistakes, maybe we need another mode?
+        # For now, keep "Error" = Current Wrong.
+        # But wait, if "Error Mode" is "Review Mistakes", and I just did it right, it disappears from this list. That is correct behavior for "Drilling".
+        # The user's complaint was about the "List View" (Paper/Subject list) losing the MARK.
         query += " AND uqs.wrong_count > 0"
     elif mode == "difficult": 
         query += " AND uqs.is_difficult = 1"
     elif mode == "all_loop":
         pass # All accessable
     else: 
-        # Default/Normal: Pure Bank (Owned + No Paper) - Legacy behavior or "Pure" preference
-        # User said "1档是全部普刷", let's map "normal" to "all_loop" OR keep "Pure".
-        # Let's map "normal" -> "Pure Bank" to match the Subject List view
+        # Default/Normal/Pure
         query += " AND (q.user_id = ? AND q.paper_id IS NULL)"
         params.append(user['id'])
 
     # 3. Type Filter
-    # qtype map: simple -> db value
-    # single (objective), multi (multi), fill (fill), essay (subjective)
     if qtype == "single":
         query += " AND q.question_type = 'objective'"
     elif qtype == "multi":
@@ -673,7 +680,8 @@ async def record(request: Request):
     if ok:
         cur.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
     else:
-        cur.execute("UPDATE user_question_status SET wrong_count = wrong_count + 1 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+        # Wrong: wrong_count++ AND history_wrong=1
+        cur.execute("UPDATE user_question_status SET wrong_count = wrong_count + 1, history_wrong = 1 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
         cur.execute("UPDATE user_question_status SET is_difficult = 1 WHERE user_id = ? AND question_id = ? AND wrong_count >= 2", (user['id'], qid))
     
     cur.execute("INSERT INTO study_records (user_id, question_id, is_correct) VALUES (?,?,?)", (user['id'], qid, ok))
