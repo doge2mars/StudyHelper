@@ -134,6 +134,19 @@ def init_db():
     admin_hash = pwd_context.hash("admin123")
     c.execute("INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)", ("admin", admin_hash, "admin"))
     
+    # V1.3.4 Auto-Migration: Ensure history_wrong exists
+    try:
+        # Check if column exists to avoid error logging (though add column handles it gracefully usually)
+        c.execute("SELECT history_wrong FROM user_question_status LIMIT 1")
+    except sqlite3.OperationalError:
+        print("V1.3.4: Adding history_wrong column...")
+        try:
+            c.execute("ALTER TABLE user_question_status ADD COLUMN history_wrong INTEGER DEFAULT 0")
+            c.execute("UPDATE user_question_status SET history_wrong = 1 WHERE wrong_count > 0")
+            print("V1.3.4: Migration Complete (Column Added & Backfilled)")
+        except Exception as e:
+            print(f"V1.3.4 Migration Failed: {e}")
+
     conn.commit()
     conn.close()
 
