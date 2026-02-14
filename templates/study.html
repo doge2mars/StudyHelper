@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="study-container">
+    <!-- Header: Progress & Info -->
+    <div class="glass-card"
+        style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h2 style="margin: 0; font-size: 1.2rem;">
+                <i class="fas {% if is_paper %}fa-graduation-cap{% else %}fa-book-open{% endif %}"></i>
+                {{ subject.name }}
+            </h2>
+            <div style="font-size: 0.8rem; opacity: 0.6; margin-top: 0.2rem;">
+                模式: {{ '模拟考试' if is_paper else '常规刷题' }}
+            </div>
+        </div>
+        <div style="text-align: right;">
+            <div id="progress-text" style="font-weight: 600; color: var(--accent);">1 / {{ questions|length }}</div>
+            <div
+                style="width: 150px; height: 6px; background: rgba(0,0,0,0.05); border-radius: 3px; margin-top: 0.5rem; position: relative; overflow: hidden;">
+                <div id="progress-bar" style="width: 0%; height: 100%; background: var(--accent); transition: 0.3s;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Display Area -->
+    <div id="question-card" class="glass-card"
+        style="padding: 2.5rem; min-height: 400px; display: flex; flex-direction: column; gap: 2rem;">
+        <div id="question-text" style="font-size: 1.1rem; line-height: 1.8; color: var(--text);">
+            <!-- Text injected via JS -->
+        </div>
+
+        <div id="question-images" style="display: flex; flex-direction: column; gap: 1rem;">
+            <!-- Images injected via JS -->
+        </div>
+
+        <div id="answer-area"
+            style="display: none; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 2rem; margin-top: 1rem;">
+            <div style="font-weight: 600; color: var(--success); margin-bottom: 1rem;">
+                <i class="fas fa-check-circle"></i> 参考解析
+            </div>
+            <div id="answer-images" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Answer images injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div style="margin-top: 2rem; display: flex; justify-content: space-between; align-items: center;">
+        <button id="prev-btn" class="btn" onclick="prevQuestion()" disabled>
+            <i class="fas fa-chevron-left"></i> 上一题
+        </button>
+
+        <div style="display: flex; gap: 1rem;">
+            <button id="toggle-answer-btn" class="btn btn-secondary" onclick="toggleAnswer()">
+                <i class="fas fa-eye"></i> 查看答案
+            </button>
+            <div id="record-btns" style="display: none; gap: 1rem;">
+                <button class="btn" style="background: rgba(0, 184, 148, 0.1); color: var(--success);"
+                    onclick="record(1)">
+                    <i class="fas fa-check"></i> 我做对了
+                </button>
+                <button class="btn" style="background: rgba(255, 118, 117, 0.1); color: var(--danger);"
+                    onclick="record(0)">
+                    <i class="fas fa-times"></i> 我做错了
+                </button>
+            </div>
+        </div>
+
+        <button id="next-btn" class="btn btn-primary" onclick="nextQuestion()">
+            下一题 <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+</div>
+
+<script>
+    const questions = {{ questions| tojson }};
+    let currentIndex = 0;
+
+    function renderQuestion() {
+        if (questions.length === 0) {
+            document.getElementById('question-card').innerHTML = `
+                <div style="text-align: center; padding: 5rem; opacity: 0.5;">
+                    <i class="fas fa-ghost" style="font-size: 4rem; display: block; margin-bottom: 1rem;"></i>
+                    题库是空的，快去添加一些题目吧！
+                </div>
+            `;
+            return;
+        }
+
+        const q = questions[currentIndex];
+        const qTextEl = document.getElementById('question-text');
+        const qImgsEl = document.getElementById('question-images');
+        const aImgsEl = document.getElementById('answer-images');
+        const answerArea = document.getElementById('answer-area');
+
+        // Reset
+        answerArea.style.display = 'none';
+        document.getElementById('toggle-answer-btn').style.display = 'inline-flex';
+        document.getElementById('record-btns').style.display = 'none';
+
+        // Render Question
+        qTextEl.textContent = q.question_text;
+        qImgsEl.innerHTML = q.q_imgs.map(path => `<img src="${path}" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">`).join('');
+        aImgsEl.innerHTML = q.a_imgs.map(path => `<img src="${path}" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">`).join('');
+
+        // Progress
+        document.getElementById('progress-text').textContent = `${currentIndex + 1} / ${questions.length}`;
+        document.getElementById('progress-bar').style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
+
+        // Buttons
+        document.getElementById('prev-btn').disabled = currentIndex === 0;
+        document.getElementById('next-btn').innerHTML = currentIndex === questions.length - 1 ? '完成学习 <i class="fas fa-flag-checkered"></i>' : '下一题 <i class="fas fa-chevron-right"></i>';
+    }
+
+    function toggleAnswer() {
+        document.getElementById('answer-area').style.display = 'block';
+        document.getElementById('toggle-answer-btn').style.display = 'none';
+        document.getElementById('record-btns').style.display = 'inline-flex';
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    async function record(ok) {
+        const q = questions[currentIndex];
+        try {
+            const resp = await fetch('/api/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qid: q.id, ok: !!ok })
+            });
+            if (resp.ok) {
+                if (currentIndex < questions.length - 1) {
+                    nextQuestion();
+                } else {
+                    alert('学习完成！恭喜你完成了本组题目的练习。');
+                    location.href = '/';
+                }
+            }
+        } catch (e) {
+            console.error(e);
+            alert('保存进度失败');
+        }
+    }
+
+    function nextQuestion() {
+        if (currentIndex < questions.length - 1) {
+            currentIndex++;
+            renderQuestion();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            location.href = '/';
+        }
+    }
+
+    function prevQuestion() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            renderQuestion();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    // Initial render
+    renderQuestion();
+</script>
+
+<style>
+    .study-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 0;
+    }
+</style>
+{% endblock %}

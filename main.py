@@ -12,7 +12,7 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-app = FastAPI(title='Study Helper Pro V1.2.3')
+app = FastAPI(title='Study Helper Pro V1.2.4')
 pillow_heif.register_heif_opener()
 
 # Security & Auth
@@ -177,15 +177,24 @@ def get_app_name():
 def get_question_data(conn, q_id, user_id=None):
     if user_id:
         q = conn.execute('''
-            SELECT q.* FROM questions q 
-            LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id
+            SELECT q.*, 
+                   COALESCE(uqs.wrong_count, 0) as user_wrong_count,
+                   COALESCE(uqs.is_difficult, 0) as user_is_difficult
+            FROM questions q 
+            LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id AND pa.user_id = ?
+            LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
             WHERE q.id = ? AND (q.user_id = ? OR pa.user_id = ?)
-        ''', (q_id, user_id, user_id)).fetchone()
+        ''', (user_id, user_id, q_id, user_id, user_id)).fetchone()
     else:
         q = conn.execute("SELECT * FROM questions WHERE id = ?", (q_id,)).fetchone()
     
     if not q: return None
     d = dict(q)
+    # Overwrite with per-user stats if available
+    if 'user_wrong_count' in d:
+        d['wrong_count'] = d['user_wrong_count']
+        d['is_difficult'] = d['user_is_difficult']
+    
     d['q_imgs'] = [r['path'] for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "question"', (q_id,)).fetchall()]
     d['a_imgs'] = [r['path'] for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "answer"', (q_id,)).fetchall()]
     return d
@@ -218,11 +227,31 @@ async def index(request: Request):
     user = await get_current_user(request)
     if not user: return RedirectResponse("/login", status_code=303)
     conn = get_db(); c = conn.cursor()
-    total_q = c.execute("SELECT COUNT(*) FROM questions WHERE user_id = ?", (user['id'],)).fetchone()[0]
+    # Total count: owned + assigned
+    total_q = c.execute('''
+        SELECT COUNT(DISTINCT q.id) FROM questions q 
+        LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id AND pa.user_id = ?
+        WHERE q.user_id = ? OR pa.user_id = ?
+    ''', (user['id'], user['id'], user['id'])).fetchone()[0]
+    
     today_q = c.execute("SELECT COUNT(*) FROM study_records WHERE user_id = ? AND date(studied_at) = date('now')", (user['id'],)).fetchone()[0]
     recs = c.execute("SELECT COUNT(*) as total, SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) as ok FROM study_records WHERE user_id = ?", (user['id'],)).fetchone()
     acc = round(recs['ok'] / recs['total'] * 100, 1) if recs['total'] > 0 else 0
-    subs = c.execute('SELECT s.*, COUNT(q.id) as q_count FROM subjects s LEFT JOIN questions q ON s.id = q.subject_id AND q.user_id = ? WHERE s.user_id = ? GROUP BY s.id ORDER BY s.name', (user['id'], user['id'])).fetchall()
+    
+    # Subjects list: owned subjects OR subjects containing assigned papers
+    subs = c.execute('''
+        SELECT s.*, 
+            (SELECT COUNT(DISTINCT q.id) FROM questions q 
+             LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id AND pa.user_id = ?
+             WHERE q.subject_id = s.id AND (q.user_id = ? OR pa.user_id = ?)
+            ) as q_count 
+        FROM subjects s 
+        WHERE s.user_id = ? 
+           OR s.id IN (SELECT DISTINCT p.subject_id FROM paper_assignments pa JOIN papers p ON pa.paper_id = p.id WHERE pa.user_id = ?)
+        GROUP BY s.id
+        ORDER BY s.name
+    ''', (user['id'], user['id'], user['id'], user['id'], user['id'])).fetchall()
+    
     distributed = c.execute('''SELECT p.*, s.name as s_name FROM paper_assignments pa 
                                 JOIN papers p ON pa.paper_id = p.id 
                                 JOIN subjects s ON p.subject_id = s.id
@@ -300,12 +329,18 @@ async def add_q(request: Request, sid: int, q_text: str = Form(...), q_type: str
     conn.commit(); conn.close()
     return RedirectResponse(f"/paper/{paper_id}" if paper_id else f"/subject/{sid}", status_code=303)
 
-@app.get("/subject/{sid}/study", response_class=HTMLResponse)
-async def study(request: Request, sid: int, mode: str = "all", qtype: str = "all"):
+@app.get("/subject/{sid}/study")
+async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "all"):
     user = await get_current_user(request)
     if not user: return RedirectResponse("/login", status_code=303)
     conn = get_db()
-    s = conn.execute("SELECT * FROM subjects WHERE id = ? AND user_id = ?", (sid, user['id'])).fetchone()
+    # Relaxed subject check: owned OR accessed via assigned paper
+    s = conn.execute('''
+        SELECT s.* FROM subjects s 
+        LEFT JOIN papers p ON s.id = p.subject_id
+        LEFT JOIN paper_assignments pa ON p.id = pa.paper_id AND pa.user_id = ?
+        WHERE s.id = ? AND (s.user_id = ? OR pa.user_id = ?)
+    ''', (user['id'], sid, user['id'], user['id'])).fetchone()
     if not s: conn.close(); raise HTTPException(404)
     # Join with user_question_status for per-user state
     query = '''
@@ -442,7 +477,8 @@ async def paper_detail(request: Request, pid: int):
         WHERE p.id = ? AND (p.user_id = ? OR pa.user_id = ?)
     ''', (pid, user['id'], user['id'])).fetchone()
     if not p: conn.close(); raise HTTPException(404)
-    qs = conn.execute("SELECT * FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()
+    q_ids = [r['id'] for r in conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()]
+    questions = [get_question_data(conn, qid, user['id']) for qid in q_ids]
     
     is_owner = p['user_id'] == user['id']
     conn.close(); return templates.TemplateResponse("paper_detail.html", {
@@ -450,7 +486,7 @@ async def paper_detail(request: Request, pid: int):
         "app_name": get_app_name(), 
         "user": user, 
         "paper": dict(p), 
-        "questions": [dict(q) for q in qs],
+        "questions": questions,
         "is_owner": is_owner
     })
 
@@ -479,7 +515,7 @@ async def paper_test(request: Request, pid: int):
     ''', (pid, user['id'], user['id'])).fetchone()
     if not p: conn.close(); raise HTTPException(404)
     ids = [r['id'] for r in conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()]
-    questions = [get_question_data(conn, qid) for qid in ids]
+    questions = [get_question_data(conn, qid, user['id']) for qid in ids]
     conn.close()
     return templates.TemplateResponse("study.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": {"name": p['name'], "id": p['id']}, "questions": questions, "is_paper": True})
 
@@ -562,10 +598,10 @@ async def record(request: Request):
     # Update per-user status
     cur.execute("INSERT OR IGNORE INTO user_question_status (user_id, question_id) VALUES (?, ?)", (user['id'], qid))
     if ok:
-        cur.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+        cur.execute("UPDATE user_question_status SET wrong_count = 0, is_difficult = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
     else:
         cur.execute("UPDATE user_question_status SET wrong_count = wrong_count + 1 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
-        cur.execute("UPDATE user_question_status SET is_difficult = (wrong_count >= 2) WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+        cur.execute("UPDATE user_question_status SET is_difficult = 1 WHERE user_id = ? AND question_id = ? AND wrong_count >= 2", (user['id'], qid))
     
     cur.execute("INSERT INTO study_records (user_id, question_id, is_correct) VALUES (?,?,?)", (user['id'], qid, ok))
     conn.commit(); conn.close(); return {"status": "ok"}
