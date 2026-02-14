@@ -12,7 +12,7 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-app = FastAPI(title='Study Helper Pro V1.2.6')
+app = FastAPI(title='Study Helper Pro V1.2.7')
 pillow_heif.register_heif_opener()
 
 # Security & Auth
@@ -281,7 +281,8 @@ async def subject_detail(request: Request, sid: int):
     conn = get_db()
     s = conn.execute("SELECT * FROM subjects WHERE id = ? AND user_id = ?", (sid, user['id'])).fetchone()
     if not s: conn.close(); raise HTTPException(404)
-    qs = conn.execute("SELECT * FROM questions WHERE subject_id = ? AND user_id = ? AND (paper_id IS NULL OR wrong_count > 0) ORDER BY created_at DESC", (sid, user['id'])).fetchall()
+    # Filter: Show questions if (paper_id IS NULL) OR (wrong_count > 0)
+    qs = conn.execute("SELECT * FROM questions WHERE subject_id = ? AND user_id = ? AND (paper_id IS NULL OR id IN (SELECT question_id FROM user_question_status WHERE user_id = ? AND wrong_count > 0)) ORDER BY created_at DESC", (sid, user['id'], user['id'])).fetchall()
     conn.close()
     return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": [dict(q) for q in qs]})
 
@@ -407,33 +408,55 @@ async def slice_upload(request: Request, file: Optional[UploadFile] = File(None)
     os.remove(tmp_img); return {"img": f"data:image/jpeg;base64,{enc}", "total": total}
 
 @app.post("/api/slice-save")
-async def slice_save(request: Request):
+@app.post("/api/slice-save")
+async def slice_save(
+    request: Request,
+    sid: int = Form(...),
+    pid: Optional[int] = Form(None),
+    text: str = Form(""),
+    type: str = Form(...),
+    ans: str = Form(""),
+    a: Optional[str] = Form(None),
+    b: Optional[str] = Form(None),
+    c: Optional[str] = Form(None),
+    d: Optional[str] = Form(None),
+    source: Optional[str] = Form(None),
+    rect: str = Form(...),
+    canvas_w: int = Form(...),
+    canvas_h: int = Form(...),
+    page: int = Form(...),
+    answer_image: Optional[UploadFile] = File(None)
+):
     user = await get_current_user(request)
     if not user: return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    data = await request.json()
-    sid, pid, q_text, q_type, q_ans, rect, cw, ch, page = data['sid'], data.get('pid'), data.get('text', ''), data['type'], data.get('ans', ''), data['rect'], data['canvas_w'], data['canvas_h'], data['page']
     
-    # New options support
-    opt_a, opt_b, opt_c, opt_d = data.get('a'), data.get('b'), data.get('c'), data.get('d')
-    source = data.get('source', '')
+    import json
+    rect_dict = json.loads(rect)
 
     user_pdf = os.path.join(TEMP_DIR, f"pdf_{user['id']}.pdf")
     if not os.path.exists(user_pdf): return JSONResponse({"error": "No PDF"}, status_code=400)
     
+    # Process Question Image (Slice)
     imgs = convert_from_path(user_pdf, first_page=page, last_page=page)
     img = imgs[0]
-    rx = img.width / cw; ry = img.height / ch
-    crop_rect = (rect['left']*rx, rect['top']*ry, (rect['left']+rect['width'])*rx, (rect['top']+rect['height'])*ry)
+    rx = img.width / canvas_w; ry = img.height / canvas_h
+    crop_rect = (rect_dict['left']*rx, rect_dict['top']*ry, (rect_dict['left']+rect_dict['width'])*rx, (rect_dict['top']+rect_dict['height'])*ry)
     cropped = img.crop(crop_rect)
     
-    uid = uuid.uuid4().hex; img_name = f"{uid}.webp"
-    cropped.convert('RGB').save(os.path.join(UPLOAD_DIR, img_name), "WEBP", quality=80)
+    uid = uuid.uuid4().hex; q_img_name = f"{uid}.webp"
+    cropped.convert('RGB').save(os.path.join(UPLOAD_DIR, q_img_name), "WEBP", quality=80)
     
     conn = get_db(); cur = conn.cursor()
     cur.execute('INSERT INTO questions (subject_id, paper_id, user_id, question_text, question_type, correct_answer, option_a, option_b, option_c, option_d, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)', 
-                (sid, pid, user['id'], q_text, q_type, q_ans, opt_a, opt_b, opt_c, opt_d, source))
+                (sid, pid, user['id'], text, type, ans, a, b, c, d, source))
     qid = cur.lastrowid
-    cur.execute('INSERT INTO question_images (question_id, path, image_type) VALUES (?,?,?)', (qid, img_name, 'question'))
+    cur.execute('INSERT INTO question_images (question_id, path, image_type) VALUES (?,?,?)', (qid, q_img_name, 'question'))
+    
+    # Process Answer Image (Upload)
+    if answer_image and answer_image.filename:
+        a_p = await save_img(answer_image)
+        cur.execute('INSERT INTO question_images (question_id, path, image_type) VALUES (?,?,?)', (qid, a_p, 'answer'))
+
     conn.commit(); conn.close(); return {"status": "ok"}
 
 @app.get("/papers", response_class=HTMLResponse)
@@ -671,8 +694,16 @@ async def clone_to_bank(request: Request, qid: int):
     cur.execute('INSERT INTO questions (subject_id, paper_id, user_id, question_text, question_type, correct_answer, option_a, option_b, option_c, option_d, source, is_difficult) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', 
                 (target_sid, user['id'], q['question_text'], q['question_type'], q['correct_answer'], q['option_a'], q['option_b'], q['option_c'], q['option_d'], src, q['is_difficult']))
     new_qid = cur.lastrowid
+    
+    # Copy images physically
     imgs = cur.execute("SELECT * FROM question_images WHERE question_id = ?", (qid,)).fetchall()
-    for img in imgs: cur.execute("INSERT INTO question_images (question_id, path, image_type) VALUES (?, ?, ?)", (new_qid, img['path'], img['image_type']))
+    for img in imgs:
+        old_path = os.path.join(UPLOAD_DIR, img['path'])
+        if os.path.exists(old_path):
+            new_name = f"{uuid.uuid4().hex}.webp"
+            shutil.copy2(old_path, os.path.join(UPLOAD_DIR, new_name))
+            cur.execute("INSERT INTO question_images (question_id, path, image_type) VALUES (?, ?, ?)", (new_qid, new_name, img['image_type']))
+            
     conn.commit(); conn.close(); return {"status": "ok"}
 
 @app.post("/api/reset-stats")

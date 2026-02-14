@@ -106,11 +106,12 @@
         let optsHtml = '';
         ['a', 'b', 'c', 'd'].forEach(key => {
             const val = q[`option_${key}`];
-            if (val && val.trim()) {
+            // Render if value exists OR if it's an objective/multi question (forcing buttons for image-based options)
+            if ((val && val.trim()) || ['objective', 'multi'].includes(q.question_type)) {
                 optsHtml += `
                     <div class="opt" id="opt-${key}" onclick="checkOpt('${key}')">
                         <span class="badge" style="background:rgba(108,92,231,0.1); color:var(--accent)">${key.toUpperCase()}</span>
-                        <span>${val}</span>
+                        <span>${val || ''}</span>
                     </div>
                 `;
             }

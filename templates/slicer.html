@@ -53,8 +53,8 @@
         </div>
         <hr style="opacity:0.1; margin:0">
         <div class="form-group">
-            <label>题目备注/描述</label>
-            <input type="text" id="qtext" placeholder="选填，如：解答题第17题">
+            <label>题目备注/题干文本</label>
+            <textarea id="qtext" rows="3" placeholder="可选：在此输入题干文本，支持多行"></textarea>
         </div>
         <div class="form-group">
             <label>题目类型</label>
@@ -90,6 +90,12 @@
         <div class="form-group">
             <label>正确答案</label>
             <input type="text" id="qans" placeholder="单选填A/B/C/D，多选填ABCD">
+        </div>
+
+        <div class="form-group">
+            <label>答案解析图 (可选)</label>
+            <input type="file" id="ans-img" accept="image/*" style="font-size:0.9rem">
+            <p style="font-size:0.8rem; color:#999; margin:0.3rem 0 0 0">可上传手写答案或详细解析图</p>
         </div>
 
         <div class="form-group">
@@ -211,33 +217,43 @@
         saveBtn.disabled = true;
         saveBtn.innerText = "上传中...";
 
-        const payload = {
-            sid: document.getElementById('sid').value,
-            pid: document.getElementById('pid').value,
-            text: document.getElementById('qtext').value,
-            type: document.getElementById('qtype').value,
-            a: document.getElementById('opt-a').value,
-            b: document.getElementById('opt-b').value,
-            c: document.getElementById('opt-c').value,
-            d: document.getElementById('opt-d').value,
-            ans: document.getElementById('qans').value,
-            source: document.getElementById('qsource').value,
-            rect: currentRect,
-            canvas_w: canvas.width,
-            canvas_h: canvas.height,
-            page: currentPage
-        };
+        const formData = new FormData();
+        formData.append('sid', document.getElementById('sid').value);
+        formData.append('pid', document.getElementById('pid').value);
+        formData.append('text', document.getElementById('qtext').value);
+        formData.append('type', document.getElementById('qtype').value);
+        formData.append('a', document.getElementById('opt-a').value);
+        formData.append('b', document.getElementById('opt-b').value);
+        formData.append('c', document.getElementById('opt-c').value);
+        formData.append('d', document.getElementById('opt-d').value);
+        formData.append('ans', document.getElementById('qans').value);
+        formData.append('source', document.getElementById('qsource').value);
+
+        // JSON stringify complex objects for FormData
+        formData.append('rect', JSON.stringify(currentRect));
+        formData.append('canvas_w', canvas.width);
+        formData.append('canvas_h', canvas.height);
+        formData.append('page', currentPage);
+
+        const fileInput = document.getElementById('ans-img');
+        if (fileInput.files[0]) {
+            formData.append('answer_image', fileInput.files[0]);
+        }
 
         const res = await fetch('/api/slice-save', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: formData
         });
 
         if (res.ok) {
             showToast("✅ 切块已入库！", true);
             box.style.display = 'none';
             currentRect = null;
+            // Clear inputs
+            document.getElementById('qtext').value = '';
+            document.getElementById('qans').value = '';
+            document.getElementById('ans-img').value = '';
+            document.querySelectorAll('#options-grid input').forEach(i => i.value = '');
         } else {
             showToast("❌ 保存失败", false);
         }
