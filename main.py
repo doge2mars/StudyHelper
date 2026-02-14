@@ -260,7 +260,7 @@ async def index(request: Request):
             (SELECT COUNT(DISTINCT uqs.question_id) 
              FROM user_question_status uqs 
              JOIN questions q ON uqs.question_id = q.id 
-             WHERE q.subject_id = s.id AND uqs.user_id = ? AND (uqs.wrong_count > 0 OR uqs.history_wrong = 1)
+             WHERE q.subject_id = s.id AND uqs.user_id = ? AND uqs.wrong_count > 0
             ) as wrong_count
         FROM subjects s 
         WHERE s.user_id = ?
@@ -579,8 +579,15 @@ async def paper_detail(request: Request, pid: int):
         WHERE p.id = ? AND (p.user_id = ? OR pa.user_id = ?)
     ''', (pid, user['id'], user['id'])).fetchone()
     if not p: conn.close(); raise HTTPException(404)
-    q_ids = [r['id'] for r in conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()]
-    questions = [get_question_data(conn, qid, user['id']) for qid in q_ids]
+    # V1.3.6: Update query to fetch User Status for Paper Questions
+    q_ids_rows = conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()
+    q_ids = [r['id'] for r in q_ids_rows]
+    
+    questions = []
+    for qid in q_ids:
+        q = get_question_data(conn, qid, user['id'])
+        # Ensure status is present (get_question_data adds it, but let's verify)
+        questions.append(q)
     
     is_owner = p['user_id'] == user['id']
     conn.close(); return templates.TemplateResponse("paper_detail.html", {

@@ -28,6 +28,13 @@
         <div style="flex:1">
             <div style="display:flex; align-items:center; gap:0.8rem">
                 <span style="color:var(--accent); font-weight:bold; min-width:25px">{{ loop.index }}</span>
+                <!-- V1.3.6: Status Badges -->
+                {% if q.wrong_count > 0 %}
+                <span class="badge" style="background:var(--danger); color:white; font-size:0.7rem;">错 {{ q.wrong_count
+                    }}</span>
+                {% elif q.history_wrong == 1 %}
+                <span class="badge" style="background:var(--warning); color:white; font-size:0.7rem;">曾错</span>
+                {% endif %}
                 <span class="q-text-link" style="font-weight:600; font-size:1.05rem; color:var(--text)">
                     {{ q.question_text[:120] or '图示题' }}{% if q.question_text|length > 120 %}...{% endif %}
                 </span>
