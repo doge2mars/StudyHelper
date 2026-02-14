@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="text-align:center; margin-bottom:3rem">
+    <h1>试卷录入中心</h1>
+    <p style="color:#636e72">选择您最方便的题目快速录入方式</p>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; max-width:800px; margin:0 auto">
+    <!-- Manual Entry -->
+    <div class="glass-card" style="padding:2.5rem; text-align:center; transition:0.3s" class="entry-card">
+        <div style="font-size:3rem; color:var(--accent); margin-bottom:1.5rem">
+            <i class="fas fa-keyboard"></i>
+        </div>
+        <h3>手动录入</h3>
+        <p style="color:#636e72; font-size:0.9rem; margin-bottom:2rem">支持文字输入、上传图片解答，适合单道题目补充。</p>
+        <a href="/manage" class="btn btn-primary" style="width:100%; justify-content:center">前往题库管理</a>
+    </div>
+
+    <!-- PDF Slicer -->
+    <div class="glass-card" style="padding:2.5rem; text-align:center; transition:0.3s" class="entry-card">
+        <div style="font-size:3rem; color:var(--success); margin-bottom:1.5rem">
+            <i class="fas fa-scissors"></i>
+        </div>
+        <h3>PDF 智能切题</h3>
+        <p style="color:#636e72; font-size:0.9rem; margin-bottom:2rem">上传 PDF 试卷文件，通过鼠标框选快速将题目切图入库。</p>
+        <a href="/slicer" class="btn"
+            style="width:100%; justify-content:center; background:var(--success); color:white">开始切题</a>
+    </div>
+</div>
+
+<style>
+    .entry-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}

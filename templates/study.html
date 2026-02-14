@@ -99,10 +99,38 @@
         document.getElementById('toggle-answer-btn').style.display = 'inline-flex';
         document.getElementById('record-btns').style.display = 'none';
 
-        // Render Question
-        qTextEl.textContent = q.question_text;
-        qImgsEl.innerHTML = q.q_imgs.map(path => `<img src="${path}" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">`).join('');
-        aImgsEl.innerHTML = q.a_imgs.map(path => `<img src="${path}" style="max-width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">`).join('');
+        // Render Question Text
+        qTextEl.textContent = q.question_text || '图示题';
+
+        // Render Options if any (A, B, C, D)
+        let optsHtml = '';
+        ['a', 'b', 'c', 'd'].forEach(key => {
+            const val = q[`option_${key}`];
+            if (val && val.trim()) {
+                optsHtml += `
+                    <div class="opt" id="opt-${key}" onclick="checkOpt('${key}')">
+                        <span class="badge" style="background:rgba(108,92,231,0.1); color:var(--accent)">${key.toUpperCase()}</span>
+                        <span>${val}</span>
+                    </div>
+                `;
+            }
+        });
+
+        const optBox = document.createElement('div');
+        optBox.className = 'opt-box';
+        optBox.id = 'opt-box';
+        optBox.innerHTML = optsHtml;
+
+        // Render Question Images
+        qImgsEl.innerHTML = q.q_imgs.map(path => `<img src="${path}" class="q-image">`).join('');
+        if (optsHtml) {
+            qImgsEl.appendChild(optBox);
+        }
+
+        // Render Answer Area
+        let aHtml = `<div style="margin-bottom: 1.5rem; font-size: 1.1rem;">正确答案: <span style="color:var(--success); font-weight:700">${q.correct_answer}</span></div>`;
+        aHtml += q.a_imgs.map(path => `<img src="${path}" class="q-image">`).join('');
+        aImgsEl.innerHTML = aHtml;
 
         // Progress
         document.getElementById('progress-text').textContent = `${currentIndex + 1} / ${questions.length}`;
@@ -111,6 +139,23 @@
         // Buttons
         document.getElementById('prev-btn').disabled = currentIndex === 0;
         document.getElementById('next-btn').innerHTML = currentIndex === questions.length - 1 ? '完成学习 <i class="fas fa-flag-checkered"></i>' : '下一题 <i class="fas fa-chevron-right"></i>';
+    }
+
+    function checkOpt(key) {
+        const q = questions[currentIndex];
+        const isCorrect = key.toUpperCase() === q.correct_answer.toUpperCase();
+        const el = document.getElementById(`opt-${key}`);
+
+        // Highlight logic
+        document.querySelectorAll('.opt').forEach(o => o.classList.remove('correct', 'wrong'));
+        el.classList.add(isCorrect ? 'correct' : 'wrong');
+
+        if (isCorrect) {
+            showToast("回答正确！", true);
+            setTimeout(toggleAnswer, 500);
+        } else {
+            showToast("再想想看？", false);
+        }
     }
 
     function toggleAnswer() {

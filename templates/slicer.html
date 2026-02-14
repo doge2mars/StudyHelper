@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:1.5rem">
+    <div>
+        <h1 style="margin:0"><i class="fas fa-scissors"></i> PDF 智能切题</h1>
+        <p style="color:#636e72; margin:0.3rem 0 0 0">通过框选 PDF 页面内容快速生成题目图片</p>
+    </div>
+    <div style="display:flex; gap:1rem">
+        <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="uploadPDF()">
+        <button class="btn btn-primary" onclick="document.getElementById('pdf-input').click()"><i
+                class="fas fa-upload"></i> 上传新 PDF</button>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 350px; gap:2rem; height: calc(100vh - 200px)">
+    <!-- Main View: PDF Canvas -->
+    <div class="glass-card" style="position:relative; overflow:auto; display:flex; flex-direction:column; padding:0">
+        <div
+            style="padding:1rem; background:rgba(0,0,0,0.02); display:flex; justify-content:center; align-items:center; gap:2rem; border-bottom:1px solid rgba(0,0,0,0.05)">
+            <button class="btn btn-icon" onclick="changePage(-1)"><i class="fas fa-arrow-left"></i></button>
+            <span id="page-info" style="font-weight:600">第 0 / 0 页</span>
+            <button class="btn btn-icon" onclick="changePage(1)"><i class="fas fa-arrow-right"></i></button>
+        </div>
+        <div id="canvas-container"
+            style="flex:1; position:relative; background:#888; display:flex; justify-content:center; overflow:auto">
+            <canvas id="slicer-canvas"
+                style="cursor:crosshair; box-shadow:0 0 40px rgba(0,0,0,0.3); margin:2rem"></canvas>
+            <div id="selection-box"
+                style="position:absolute; border:2px dashed #00b894; background:rgba(0,184,148,0.1); display:none; pointer-events:none">
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: Settings & Save -->
+    <div class="glass-card" style="display:flex; flex-direction:column; gap:1.5rem">
+        <h3 style="margin:0">切块属性</h3>
+        <div class="form-group">
+            <label>所属学科</label>
+            <select id="sid">
+                {% for s in subjects %}
+                <option value="{{ s.id }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>归属试卷 (可选)</label>
+            <select id="pid">
+                <option value="">-- 题库池 (不归属试卷) --</option>
+                {% for p in papers %}
+                <option value="{{ p.id }}">{{ p.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <hr style="opacity:0.1; margin:0">
+        <div class="form-group">
+            <label>切图范围描述</label>
+            <input type="text" id="qtext" placeholder="选填，如：解答题第17题">
+        </div>
+        <div class="form-group">
+            <label>题目类型</label>
+            <select id="qtype">
+                <option value="subjective">主观题/大题</option>
+                <option value="objective">单选题</option>
+                <option value="multi">多选题</option>
+                <option value="fill">填空题</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>正确答案</label>
+            <input type="text" id="qans" placeholder="选填，用于自动对分">
+        </div>
+
+        <div style="margin-top:auto">
+            <button id="save-btn" class="btn btn-primary" style="width:100%; justify-content:center; padding:1rem"
+                onclick="saveSlice()" disabled>
+                <i class="fas fa-save"></i> 保存切块并入库
+            </button>
+            <p style="font-size:0.75rem; color:#999; text-align:center; margin-top:0.8rem">
+                提示：在左侧区域按住鼠标左键并拖动进行框选
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('slicer-canvas');
+    const ctx = canvas.getContext('2d');
+    const box = document.getElementById('selection-box');
+    const container = document.getElementById('canvas-container');
+
+    let isDrawing = false;
+    let startX, startY;
+    let currentRect = null;
+    let currentPage = 1;
+    let totalPages = 0;
+    let originalWidth, originalHeight;
+
+    async function uploadPDF() {
+        const file = document.getElementById('pdf-input').files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('page', 1);
+
+        showToast("正在加载 PDF...", true);
+        const res = await fetch('/api/slice-upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.img) {
+            totalPages = data.total;
+            currentPage = 1;
+            renderPage(data.img);
+        }
+    }
+
+    async function changePage(dir) {
+        if (currentPage + dir < 1 || currentPage + dir > totalPages) return;
+        currentPage += dir;
+        const formData = new FormData();
+        formData.append('page', currentPage);
+        const res = await fetch('/api/slice-upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        renderPage(data.img);
+        currentRect = null;
+        box.style.display = 'none';
+        document.getElementById('save-btn').disabled = true;
+    }
+
+    function renderPage(base64) {
+        const img = new Image();
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            originalWidth = img.width;
+            originalHeight = img.height;
+            ctx.drawImage(img, 0, 0);
+            document.getElementById('page-info').innerText = `第 ${currentPage} / ${totalPages} 页`;
+        };
+        img.src = base64;
+    }
+
+    canvas.addEventListener('mousedown', e => {
+        isDrawing = true;
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        box.style.display = 'block';
+    });
+
+    canvas.addEventListener('mousemove', e => {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const left = Math.min(startX, x);
+        const top = Math.min(startY, y);
+        const width = Math.abs(startX - x);
+        const height = Math.abs(startY - y);
+
+        currentRect = { left, top, width, height };
+
+        box.style.left = (left + canvas.offsetLeft) + 'px';
+        box.style.top = (top + canvas.offsetTop) + 'px';
+        box.style.width = width + 'px';
+        box.style.height = height + 'px';
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        isDrawing = false;
+        if (currentRect && currentRect.width > 10 && currentRect.height > 10) {
+            document.getElementById('save-btn').disabled = false;
+        }
+    });
+
+    async function saveSlice() {
+        if (!currentRect) return;
+        const saveBtn = document.getElementById('save-btn');
+        saveBtn.disabled = true;
+        saveBtn.innerText = "上传中...";
+
+        const payload = {
+            sid: document.getElementById('sid').value,
+            pid: document.getElementById('pid').value,
+            text: document.getElementById('qtext').value,
+            type: document.getElementById('qtype').value,
+            ans: document.getElementById('qans').value,
+            rect: currentRect,
+            canvas_w: canvas.width,
+            canvas_h: canvas.height,
+            page: currentPage
+        };
+
+        const res = await fetch('/api/slice-save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+            showToast("✅ 切块已入库！", true);
+            box.style.display = 'none';
+            currentRect = null;
+        } else {
+            showToast("❌ 保存失败", false);
+        }
+
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> 保存切块并入库';
+    }
+</script>
+{% endblock %}

@@ -12,7 +12,7 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-app = FastAPI(title='Study Helper Pro V1.2.4')
+app = FastAPI(title='Study Helper Pro V1.2.5')
 pillow_heif.register_heif_opener()
 
 # Security & Auth
@@ -195,8 +195,8 @@ def get_question_data(conn, q_id, user_id=None):
         d['wrong_count'] = d['user_wrong_count']
         d['is_difficult'] = d['user_is_difficult']
     
-    d['q_imgs'] = [r['path'] for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "question"', (q_id,)).fetchall()]
-    d['a_imgs'] = [r['path'] for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "answer"', (q_id,)).fetchall()]
+    d['q_imgs'] = [f"/static/uploads/{os.path.basename(r['path'])}" for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "question"', (q_id,)).fetchall()]
+    d['a_imgs'] = [f"/static/uploads/{os.path.basename(r['path'])}" for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "answer"', (q_id,)).fetchall()]
     return d
 
 @app.get("/login", response_class=HTMLResponse)
