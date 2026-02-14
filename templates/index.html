@@ -40,7 +40,14 @@
     <div class="glass-card subject-card" onclick="location.href='/subject/{{ s.id }}'">
         <div style="display:flex; justify-content:space-between; align-items:flex-start">
             <h2 style="margin:0">{{ s.name }}</h2>
-            <span class="badge" style="background:rgba(108, 92, 231, 0.1); color:var(--accent)">{{ s.q_count }} 题</span>
+            <div style="display: flex; gap: 0.5rem;">
+                {% if s.wrong_count > 0 %}
+                <span class="badge" style="background:rgba(214, 48, 49, 0.1); color:var(--danger)">{{ s.wrong_count }}
+                    错</span>
+                {% endif %}
+                <span class="badge" style="background:rgba(108, 92, 231, 0.1); color:var(--accent)">{{ s.q_count }}
+                    题</span>
+            </div>
         </div>
         <div style="margin-top:2rem; display:flex; gap:0.5rem">
             <a href="/subject/{{ s.id }}/study" class="btn btn-primary" style="flex:1; justify-content:center">

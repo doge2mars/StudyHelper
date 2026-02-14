@@ -256,11 +256,16 @@ async def index(request: Request):
         SELECT s.*, 
             (SELECT COUNT(DISTINCT q.id) FROM questions q 
              WHERE q.subject_id = s.id AND q.user_id = ?
-            ) as q_count 
+            ) as q_count,
+            (SELECT COUNT(DISTINCT uqs.question_id) 
+             FROM user_question_status uqs 
+             JOIN questions q ON uqs.question_id = q.id 
+             WHERE q.subject_id = s.id AND uqs.user_id = ? AND (uqs.wrong_count > 0 OR uqs.history_wrong = 1)
+            ) as wrong_count
         FROM subjects s 
         WHERE s.user_id = ?
         ORDER BY s.name
-    ''', (user['id'], user['id'])).fetchall()
+    ''', (user['id'], user['id'], user['id'])).fetchall()
     
     distributed = c.execute('''SELECT p.*, s.name as s_name FROM paper_assignments pa 
                                 JOIN papers p ON pa.paper_id = p.id 
@@ -306,8 +311,16 @@ async def subject_detail(request: Request, sid: int):
         )
         ORDER BY q.created_at DESC
     ''', (user['id'], sid, user['id'])).fetchall()
+    
+    # V1.3.5: Calculate Stats
+    stats = {
+        "total": len(qs),
+        "wrong": sum(1 for q in qs if q['wrong_count'] > 0 or q['history_wrong'] == 1),
+        "difficult": sum(1 for q in qs if q['is_difficult'] == 1)
+    }
+
     conn.close()
-    return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": [dict(q) for q in qs]})
+    return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": [dict(q) for q in qs], "stats": stats})
 
 async def save_img(f: UploadFile) -> str:
     ext = os.path.splitext(f.filename)[1].lower(); uid = uuid.uuid4().hex; img_name = f"{uid}.webp"; tmp = f"/tmp/{uid}{ext}"
