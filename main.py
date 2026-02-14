@@ -191,7 +191,9 @@ def get_question_data(conn, q_id, user_id=None):
     if user_id:
         q = conn.execute('''
             SELECT q.*, 
+                   uqs.id as uqs_id,
                    COALESCE(uqs.wrong_count, 0) as user_wrong_count,
+                   COALESCE(uqs.history_wrong, 0) as user_history_wrong,
                    COALESCE(uqs.is_difficult, 0) as user_is_difficult
             FROM questions q 
             LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id AND pa.user_id = ?
@@ -206,7 +208,9 @@ def get_question_data(conn, q_id, user_id=None):
     # Overwrite with per-user stats if available
     if 'user_wrong_count' in d:
         d['wrong_count'] = d['user_wrong_count']
+        d['history_wrong'] = d['user_history_wrong']
         d['is_difficult'] = d['user_is_difficult']
+        d['has_record'] = d['uqs_id'] is not None
     
     d['q_imgs'] = [f"/static/uploads/{os.path.basename(r['path'])}" for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "question"', (q_id,)).fetchall()]
     d['a_imgs'] = [f"/static/uploads/{os.path.basename(r['path'])}" for r in conn.execute('SELECT path FROM question_images WHERE question_id = ? AND image_type = "answer"', (q_id,)).fetchall()]
@@ -410,7 +414,9 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
     elif mode == "difficult": 
         query += " AND uqs.is_difficult = 1"
     elif mode == "all_loop":
-        pass # All accessable
+        # V1.3.7 FIX: User explicitly wants "Start Study" in Subject to NOT include Paper questions.
+        # "All Loop" now means "All Questions in this Subject's BANK".
+        query += " AND q.paper_id IS NULL"
     else: 
         # Default/Normal/Pure
         query += " AND (q.user_id = ? AND q.paper_id IS NULL)"
@@ -709,12 +715,16 @@ async def record(request: Request):
     if not allowed: conn.close(); return JSONResponse({"error": "Question not found"}, status_code=404)
     
     # Update per-user status
+    # V1.3.7: Use INSERT OR IGNORE to ensure row exists, then UPDATE.
     cur.execute("INSERT OR IGNORE INTO user_question_status (user_id, question_id) VALUES (?, ?)", (user['id'], qid))
+    
     if ok:
+        # User Correct: Clear Active Error (wrong_count -> 0), Keep History (history_wrong).
         cur.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
     else:
-        # Wrong: wrong_count++ AND history_wrong=1
+        # User Wrong: Increment wrong_count, Set history_wrong = 1.
         cur.execute("UPDATE user_question_status SET wrong_count = wrong_count + 1, history_wrong = 1 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+        # Auto-mark difficult if wrong >= 2 times (Active count)
         cur.execute("UPDATE user_question_status SET is_difficult = 1 WHERE user_id = ? AND question_id = ? AND wrong_count >= 2", (user['id'], qid))
     
     cur.execute("INSERT INTO study_records (user_id, question_id, is_correct) VALUES (?,?,?)", (user['id'], qid, ok))

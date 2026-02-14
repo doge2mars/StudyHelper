@@ -199,8 +199,12 @@
                 body: JSON.stringify({ qid: q.id, ok: !!ok })
             });
             if (resp.ok) {
+                // V1.3.7: Visual feedback
+                if (ok) showToast("✅ 已标记为：掌握", true);
+                else showToast("❌ 已标记为：错题", false);
+
                 if (currentIndex < questions.length - 1) {
-                    nextQuestion();
+                    setTimeout(nextQuestion, 500); // Slight delay to see toast
                 } else {
                     alert('学习完成！恭喜你完成了本组题目的练习。');
                     location.href = '/';
