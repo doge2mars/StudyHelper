@@ -5,15 +5,42 @@
         <h1 style="margin: 0;"><i class="fas fa-folder-open"></i> {{ subject.name }}</h1>
         <p style="color: #636e72; margin-top: 0.3rem;">查看该科目下的所有题目及近期错题</p>
     </div>
-    <div style="display: flex; gap: 1rem;">
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        <div class="dropdown" style="position: relative;">
+            <select id="studyMode"
+                style="padding: 0.5rem; border-radius: 8px; border: 1px solid #dfe6e9; background: white; cursor: pointer;">
+                <option value="all_loop">🔄 全部循环</option>
+                <option value="error">❌ 错题复习</option>
+                <option value="difficult">⭐ 难点攻克</option>
+                <option value="normal">📚 纯题库</option>
+            </select>
+        </div>
+        <div class="dropdown" style="position: relative;">
+            <select id="qType"
+                style="padding: 0.5rem; border-radius: 8px; border: 1px solid #dfe6e9; background: white; cursor: pointer;">
+                <option value="all">📦 全部题型</option>
+                <option value="single">🔘 单选题</option>
+                <option value="multi">☑️ 多选题</option>
+                <option value="fill">📝 填空题</option>
+                <option value="essay">📑 大题</option>
+            </select>
+        </div>
         <a href="/subject/{{ subject.id }}/add" class="btn btn-primary">
-            <i class="fas fa-plus"></i> 手动录题
+            <i class="fas fa-plus"></i> 录题
         </a>
-        <a href="/subject/{{ subject.id }}/study" class="btn" style="background: var(--success); color: white;">
+        <button onclick="startStudy()" class="btn" style="background: var(--success); color: white;">
             <i class="fas fa-play"></i> 开始刷题
-        </a>
+        </button>
     </div>
 </div>
+
+<script>
+function startStudy() {
+    const mode = document.getElementById('studyMode').value;
+    const type = document.getElementById('qType').value;
+    window.location.href = `/subject/{{ subject.id }}/study?mode=${mode}&qtype=${type}`;
+}
+</script>
 
 <div class="glass-card" style="padding: 0; overflow: hidden;">
     <table style="width: 100%; border-collapse: collapse;">
