@@ -433,10 +433,19 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
         query += " AND q.question_type = 'subjective'"
     # 'all' -> no filter
 
-    ids = [r['id'] for r in conn.execute(query + " ORDER BY RANDOM()", params).fetchall()]
-    questions = [get_question_data(conn, qid, user['id']) for qid in ids]
-    conn.close()
-    return templates.TemplateResponse("study.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": questions, "mode": mode, "qtype": qtype})
+    # 'all' -> no filter
+
+    try:
+        ids = [r['id'] for r in conn.execute(query + " ORDER BY RANDOM()", params).fetchall()]
+        questions = [get_question_data(conn, qid, user['id']) for qid in ids]
+        # Filter None
+        questions = [q for q in questions if q]
+        
+        conn.close()
+        return templates.TemplateResponse("study.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": questions, "mode": mode, "qtype": qtype, "is_paper": False})
+    except Exception as e:
+        conn.close()
+        return HTMLResponse(content=f"<h1>Error in Study Page</h1><pre>{e}</pre><p>Query: {query}</p><p>Params: {params}</p>", status_code=500)
 
 @app.get("/question/{qid}", response_class=HTMLResponse)
 async def single_question(request: Request, qid: int):
@@ -585,25 +594,29 @@ async def paper_detail(request: Request, pid: int):
         WHERE p.id = ? AND (p.user_id = ? OR pa.user_id = ?)
     ''', (pid, user['id'], user['id'])).fetchone()
     if not p: conn.close(); raise HTTPException(404)
-    # V1.3.6: Update query to fetch User Status for Paper Questions
-    q_ids_rows = conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()
-    q_ids = [r['id'] for r in q_ids_rows]
-    
-    questions = []
-    for qid in q_ids:
-        q = get_question_data(conn, qid, user['id'])
-        # Ensure status is present (get_question_data adds it, but let's verify)
-        questions.append(q)
-    
-    is_owner = p['user_id'] == user['id']
-    conn.close(); return templates.TemplateResponse("paper_detail.html", {
-        "request": request, 
-        "app_name": get_app_name(), 
-        "user": user, 
-        "paper": dict(p), 
-        "questions": questions,
-        "is_owner": is_owner
-    })
+    try:
+        # V1.3.6: Update query to fetch User Status for Paper Questions
+        q_ids_rows = conn.execute("SELECT id FROM questions WHERE paper_id = ? ORDER BY id ASC", (pid,)).fetchall()
+        q_ids = [r['id'] for r in q_ids_rows]
+        
+        questions = []
+        for qid in q_ids:
+            q = get_question_data(conn, qid, user['id'])
+            # Ensure status is present (get_question_data adds it, but let's verify)
+            if q: questions.append(q)
+        
+        is_owner = p['user_id'] == user['id']
+        conn.close(); return templates.TemplateResponse("paper_detail.html", {
+            "request": request, 
+            "app_name": get_app_name(), 
+            "user": user, 
+            "paper": dict(p), 
+            "questions": questions,
+            "is_owner": is_owner
+        })
+    except Exception as e:
+        conn.close()
+        return HTMLResponse(content=f"<h1>Error in Paper Detail</h1><pre>{e}</pre>", status_code=500)
 
 @app.post("/paper/delete/{pid}")
 async def delete_paper(request: Request, pid: int):
