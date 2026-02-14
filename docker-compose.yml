@@ -1,12 +1,14 @@
+version: '3.8'
+
 services:
   study-helper:
-    build: /vol2/1000/work/openclaw/study-helper
-    container_name: study-helper
+    image: doge2mars/study-helper:latest
+    container_name: study-helper-pro
     ports:
-      - "7788:8000"
+      - "8866:8000"
     volumes:
-      - /vol4/1000/data/study-helper/data:/app/data
-      - /vol4/1000/data/study-helper/uploads:/app/static/uploads
+      - ./data:/app/data
+      - ./static/uploads:/app/static/uploads
     restart: always
     environment:
       - TZ=Asia/Shanghai

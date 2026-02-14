@@ -37,13 +37,20 @@
 推荐使用 Docker 进行一键部署。无论你是在 Linux 服务器、群晖/威联通 NAS，还是自己的电脑上，只需要按照以下三步操作即可。
 
 ### 方式 A：使用预构建镜像 (最简单，推荐)
-如果你不想下载源码，直接创建一个 `docker-compose.yml` 文件并运行即可：
+
+1. **准备文件夹**：创建一个文件夹（例如 `study-helper`），并在其中创建 `data` 和 `static/uploads` 目录：
+```bash
+mkdir -p study-helper/data study-helper/static/uploads
+cd study-helper
+```
+
+2. **创建配置**：在该文件夹下创建一个 `docker-compose.yml` 文件，内容如下：
 
 ```yaml
 version: '3.8'
 services:
   study-helper:
-    image: doge2mars/study-helper:latest  # 这里的名字取决于你推送后的镜像名
+    image: doge2mars/study-helper:latest
     container_name: study-helper-pro
     ports:
       - "8866:8000"
@@ -51,7 +58,11 @@ services:
       - ./data:/app/data
       - ./static/uploads:/app/static/uploads
     restart: always
+    environment:
+      - TZ=Asia/Shanghai
 ```
+
+3. **启动**：运行 `docker compose up -d`。
 
 ### 方式 B：从源码构建 (开发者模式)
 如果你想修改代码或自己构建镜像，请按以下步骤操作：
