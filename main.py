@@ -12,7 +12,7 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-app = FastAPI(title='Study Helper Pro V1.2.2')
+app = FastAPI(title='Study Helper Pro V1.2.3')
 pillow_heif.register_heif_opener()
 
 # Security & Auth
@@ -114,6 +114,17 @@ def init_db():
         FOREIGN KEY (paper_id) REFERENCES papers (id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
         UNIQUE(paper_id, user_id)
+    )''')
+    
+    # Per-user Question Status (Fix for distributed papers)
+    c.execute('''CREATE TABLE IF NOT EXISTS user_question_status (
+        user_id INTEGER,
+        question_id INTEGER,
+        wrong_count INTEGER DEFAULT 0,
+        is_difficult BOOLEAN DEFAULT 0,
+        PRIMARY KEY (user_id, question_id),
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE
     )''')
     
     c.execute('CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT)')
@@ -296,11 +307,24 @@ async def study(request: Request, sid: int, mode: str = "all", qtype: str = "all
     conn = get_db()
     s = conn.execute("SELECT * FROM subjects WHERE id = ? AND user_id = ?", (sid, user['id'])).fetchone()
     if not s: conn.close(); raise HTTPException(404)
-    query = "SELECT id FROM questions WHERE subject_id = ? AND user_id = ? AND (paper_id IS NULL OR wrong_count > 0)"
-    params = [sid, user['id']]
-    if mode == "error": query += " AND wrong_count > 0"
-    elif mode == "difficult": query += " AND is_difficult = 1"
-    if qtype != "all": query += " AND question_type = ?"; params.append(qtype)
+    # Join with user_question_status for per-user state
+    query = '''
+        SELECT q.id FROM questions q 
+        LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
+        WHERE q.subject_id = ? AND (q.user_id = ? OR q.id IN (SELECT question_id FROM questions WHERE paper_id IN (SELECT paper_id FROM paper_assignments WHERE user_id = ?)))
+    '''
+    params = [user['id'], sid, user['id'], user['id']]
+    
+    if mode == "error": 
+        query += " AND uqs.wrong_count > 0"
+    elif mode == "difficult": 
+        query += " AND uqs.is_difficult = 1"
+    else:
+        # Default mode: papers questions usually only shown if they have some "history" or specifically requested? 
+        # Actually, for study, we want all questions in that subject.
+        pass
+        
+    if qtype != "all": query += " AND q.question_type = ?"; params.append(qtype)
     ids = [r['id'] for r in conn.execute(query + " ORDER BY RANDOM()", params).fetchall()]
     questions = [get_question_data(conn, qid, user['id']) for qid in ids]
     conn.close()
@@ -524,14 +548,26 @@ async def admin_revoke(request: Request, pid: int):
 async def record(request: Request):
     user = await get_current_user(request)
     if not user: return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    data = await request.json(); qid, ok = data['qid'], data['ok']; conn = get_db()
-    q = conn.execute("SELECT id FROM questions WHERE id = ? AND user_id = ?", (qid, user['id'])).fetchone()
-    if q:
-        if ok: conn.execute("UPDATE questions SET wrong_count = 0 WHERE id = ?", (qid,))
-        else:
-            conn.execute("UPDATE questions SET wrong_count = wrong_count + 1 WHERE id = ?", (qid,))
-            conn.execute("UPDATE questions SET is_difficult = (wrong_count >= 2) WHERE id = ?", (qid,))
-    conn.execute("INSERT INTO study_records (user_id, question_id, is_correct) VALUES (?,?,?)", (user['id'], qid, ok))
+    data = await request.json(); qid, ok = data['qid'], data['ok']; conn = get_db(); cur = conn.cursor()
+    
+    # Check permission: owned OR assigned
+    allowed = cur.execute('''
+        SELECT 1 FROM questions q 
+        LEFT JOIN paper_assignments pa ON q.paper_id = pa.paper_id AND pa.user_id = ?
+        WHERE q.id = ? AND (q.user_id = ? OR pa.user_id = ?)
+    ''', (user['id'], qid, user['id'], user['id'])).fetchone()
+    
+    if not allowed: conn.close(); return JSONResponse({"error": "No permission"}, status_code=403)
+    
+    # Update per-user status
+    cur.execute("INSERT OR IGNORE INTO user_question_status (user_id, question_id) VALUES (?, ?)", (user['id'], qid))
+    if ok:
+        cur.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+    else:
+        cur.execute("UPDATE user_question_status SET wrong_count = wrong_count + 1 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+        cur.execute("UPDATE user_question_status SET is_difficult = (wrong_count >= 2) WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+    
+    cur.execute("INSERT INTO study_records (user_id, question_id, is_correct) VALUES (?,?,?)", (user['id'], qid, ok))
     conn.commit(); conn.close(); return {"status": "ok"}
 
 @app.post("/api/delete/{qid}")
@@ -545,14 +581,14 @@ async def delete_q(request: Request, qid: int):
 async def clear_status(request: Request, qid: int):
     user = await get_current_user(request)
     if not user: return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    conn = get_db(); conn.execute("UPDATE questions SET wrong_count = 0, is_difficult = 0 WHERE id = ? AND user_id = ?", (qid, user['id'])); conn.commit(); conn.close()
+    conn = get_db(); conn.execute("UPDATE user_question_status SET wrong_count = 0, is_difficult = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid)); conn.commit(); conn.close()
     return {"status": "ok"}
 
 @app.post("/api/unmark-difficult/{qid}")
 async def unmark_difficult(request: Request, qid: int):
     user = await get_current_user(request)
     if not user: return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    conn = get_db(); conn.execute("UPDATE questions SET is_difficult = 0, wrong_count = 0 WHERE id = ? AND user_id = ?", (qid, user['id'])); conn.commit(); conn.close()
+    conn = get_db(); conn.execute("UPDATE user_question_status SET is_difficult = 0, wrong_count = 0 WHERE question_id = ? AND user_id = ?", (qid, user['id'])); conn.commit(); conn.close()
     return {"status": "ok"}
 
 @app.post("/api/clone-to-bank/{qid}")
