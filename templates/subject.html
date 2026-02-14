@@ -62,8 +62,15 @@
                         <a href="/question/{{ q.id }}" class="btn btn-icon" title="预览题目">
                             <i class="fas fa-eye"></i>
                         </a>
+                        {% if q.paper_id %}
+                        <button onclick="cloneQuestion({{ q.id }})" class="btn btn-icon" style="color: var(--success);"
+                            title="加入题库">
+                            <i class="fas fa-plus-circle"></i>
+                        </button>
+                        {% else %}
                         <button onclick="deleteQuestion({{ q.id }})" class="btn btn-icon" style="color: var(--danger);"
                             title="删除"><i class="fas fa-trash-alt"></i></button>
+                        {% endif %}
                     </div>
                 </td>
             </tr>
@@ -88,6 +95,21 @@
                 setTimeout(() => location.reload(), 500);
             } else {
                 showToast("❌ 删除失败", false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        }
+    }
+
+    async function cloneQuestion(qid) {
+        try {
+            const res = await fetch(`/api/clone-to-bank/${qid}`, { method: 'POST' });
+            if (res.ok) {
+                showToast("✅ 已加入题库", true);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast("❌ 加入失败", false);
             }
         } catch (e) {
             console.error(e);

@@ -278,9 +278,17 @@ async def subject_detail(request: Request, sid: int):
     conn = get_db()
     s = conn.execute("SELECT * FROM subjects WHERE id = ? AND user_id = ?", (sid, user['id'])).fetchone()
     if not s: conn.close(); raise HTTPException(404)
-    # Filter: Show questions if user_id matches (Pure Bank)
-    # Exclude raw paper questions even if wrong. Only manually added/cloned questions.
-    qs = conn.execute("SELECT * FROM questions WHERE subject_id = ? AND user_id = ? ORDER BY created_at DESC", (sid, user['id'])).fetchall()
+    # Filter: Pure Bank (Owned & No Paper) OR Active Errors (from any source)
+    qs = conn.execute('''
+        SELECT * FROM questions 
+        WHERE subject_id = ? 
+        AND (
+            (user_id = ? AND paper_id IS NULL) 
+            OR 
+            (id IN (SELECT question_id FROM user_question_status WHERE user_id = ? AND (wrong_count > 0 OR is_difficult = 1)))
+        )
+        ORDER BY created_at DESC
+    ''', (sid, user['id'], user['id'])).fetchall()
     conn.close()
     return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": [dict(q) for q in qs]})
 
@@ -346,18 +354,17 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
         SELECT q.id FROM questions q 
         LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
         WHERE q.subject_id = ? 
-        AND q.user_id = ?
     '''
-    params = [user['id'], sid, user['id']]
+    params = [user['id'], sid]
     
     if mode == "error": 
         query += " AND uqs.wrong_count > 0"
     elif mode == "difficult": 
         query += " AND uqs.is_difficult = 1"
     else:
-        # Default mode: papers questions usually only shown if they have some "history" or specifically requested? 
-        # Actually, for study, we want all questions in that subject.
-        pass
+        # Normal mode: Pure Bank (Owned + No Paper)
+        query += " AND q.user_id = ? AND q.paper_id IS NULL"
+        params.append(user['id'])
         
     if qtype != "all": query += " AND q.question_type = ?"; params.append(qtype)
     ids = [r['id'] for r in conn.execute(query + " ORDER BY RANDOM()", params).fetchall()]
