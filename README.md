@@ -36,21 +36,33 @@
 
 推荐使用 Docker 进行一键部署。无论你是在 Linux 服务器、群晖/威联通 NAS，还是自己的电脑上，只需要按照以下三步操作即可。
 
-### 1. 安装基础环境 (仅需一次)
-如果你的电脑或服务器还没有 Docker，请先安装：
-- **Windows/Mac**: 安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
-- **Linux/NAS**: 参考官方教程安装 `docker` 和 `docker-compose`。
+### 方式 A：使用预构建镜像 (最简单，推荐)
+如果你不想下载源码，直接创建一个 `docker-compose.yml` 文件并运行即可：
 
-### 2. 获取项目代码
-打开终端 (Terminal / PowerShell)，运行以下命令：
+```yaml
+version: '3.8'
+services:
+  study-helper:
+    image: doge2mars/study-helper:latest  # 这里的名字取决于你推送后的镜像名
+    container_name: study-helper-pro
+    ports:
+      - "8866:8000"
+    volumes:
+      - ./data:/app/data
+      - ./static/uploads:/app/static/uploads
+    restart: always
+```
+
+### 方式 B：从源码构建 (开发者模式)
+如果你想修改代码或自己构建镜像，请按以下步骤操作：
+
+1. **获取项目代码**
 ```bash
-# 点击右上角绿色的 "Code" 按钮复制地址，或者直接运行这行：
 git clone https://github.com/doge2mars/StudyHelper.git
 cd StudyHelper
 ```
 
-### 3. 一键启动
-在项目目录下直接运行：
+2. **本地构建并启动**
 ```bash
 docker compose up -d --build
 ```
