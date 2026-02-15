@@ -127,6 +127,12 @@
     - [x] **Fix**: Automate `questions` table migration (add `difficulty`, `source`, etc. if missing).
     - [x] **Version**: Bump version to V1.3.24.
 
+- [x] **V1.3.25 Enhancement: Centralized Version Management**
+    - [x] **Search**: Find all hardcoded version strings.
+    - [x] **Refactor**: Define `APP_VERSION` in `main.py` and pass to all templates.
+    - [x] **Update**: Replace hardcoded versions in HTML with `{{ APP_VERSION }}` variable.
+    - [x] **Fix**: Ensure `settings.html` and `base.html` use the dynamic variable.
+
 - [x] V1.3.12: System Diagnosis & Database Repair Tool (The "Nuclear Option")
     - [x] **Plan**: Implementation Plan updated.
     - [x] **Backend**: Add `/api/admin/diagnose` and `/api/admin/fix_db` routes.

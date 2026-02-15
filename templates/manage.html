@@ -153,9 +153,11 @@
     async function confirmDistribute() {
         const checkboxes = document.querySelectorAll('.q-checkbox:checked');
         const questionIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
-        const targetUserId = parseInt(document.getElementById('target-user').value);
+        const targetUserSelect = document.getElementById('target-user');
+        const targetUserId = targetUserSelect.value ? parseInt(targetUserSelect.value) : null;
 
-        if (questionIds.length === 0 || !targetUserId) return;
+        if (questionIds.length === 0) return;
+        if (!targetUserId) return;
 
         const btn = document.querySelector('#distribute-modal button.btn-primary');
         const originalText = btn.innerText;
@@ -169,9 +171,20 @@
                 body: JSON.stringify({ question_ids: questionIds, target_user_id: targetUserId })
             });
             const data = await res.json();
+
+            closeDistributeModal();
+
             if (res.ok) {
-                showToast(`✅ 成功分发 ${data.count} 道题目`, true);
-                setTimeout(() => location.reload(), 1000);
+                if (data.stats) {
+                    alert(`分发结果汇报：\n\n📌 选中总数：${data.stats.total}\n✅ 成功分发：${data.stats.success}\n⚠️ 重复跳过：${data.stats.duplicate}\n❌ 分发失败：${data.stats.failed}`);
+                } else {
+                    showToast(`✅ 分发成功`, true);
+                }
+
+                // Clear selection
+                checkboxes.forEach(cb => cb.checked = false);
+                if (typeof updateToolbar === 'function') updateToolbar();
+                setTimeout(() => location.reload(), 500);
             } else {
                 showToast("❌ " + (data.error || "分发失败"), false);
             }
@@ -179,9 +192,10 @@
             console.error(e);
             showToast("❌ 网络错误", false);
         } finally {
-            btn.innerText = originalText;
-            btn.disabled = false;
-            closeDistributeModal();
+            if (btn) {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
         }
     }
 

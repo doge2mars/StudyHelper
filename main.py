@@ -13,7 +13,7 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-APP_VERSION = "V1.3.25"
+APP_VERSION = "V1.3.26"
 
 app = FastAPI(title=f'Study Helper Pro {APP_VERSION}', version=APP_VERSION)
 pillow_heif.register_heif_opener()
@@ -1220,60 +1220,84 @@ async def batch_distribute(req: BatchDistributeRequest, request: Request):
         if not target_user:
             return JSONResponse({"error": "Target user not found"}, 404)
 
-        success_count = 0
+        stats = {
+            "total": len(req.question_ids),
+            "success": 0,
+            "failed": 0,
+            "duplicate": 0
+        }
+        
         for qid in req.question_ids:
-            # Get Source Q
-            q_row = conn.execute("SELECT * FROM questions WHERE id = ?", (qid,)).fetchone()
-            if not q_row: continue
-            q = dict(q_row)
-            
-            # Get Source Subject Name
-            src_sub = conn.execute("SELECT name FROM subjects WHERE id = ?", (q['subject_id'],)).fetchone()
-            if not src_sub: continue
-            sub_name = src_sub['name']
-            
-            # Find/Create Target Subject
-            # Check if target user has this subject
-            tgt_sub = conn.execute("SELECT id FROM subjects WHERE user_id = ? AND name = ?", (req.target_user_id, sub_name)).fetchone()
-            if tgt_sub:
-                new_sub_id = tgt_sub['id']
-            else:
-                # Create subject
+            try:
+                # Get Source Q
+                q_row = conn.execute("SELECT * FROM questions WHERE id = ?", (qid,)).fetchone()
+                if not q_row: 
+                    stats["failed"] += 1
+                    continue
+                q = dict(q_row)
+                
+                # Get Source Subject Name
+                src_sub = conn.execute("SELECT name FROM subjects WHERE id = ?", (q['subject_id'],)).fetchone()
+                if not src_sub: 
+                    stats["failed"] += 1
+                    continue
+                sub_name = src_sub['name']
+                
+                # Find/Create Target Subject
+                # Check if target user has this subject
+                tgt_sub = conn.execute("SELECT id FROM subjects WHERE user_id = ? AND name = ?", (req.target_user_id, sub_name)).fetchone()
+                if tgt_sub:
+                    new_sub_id = tgt_sub['id']
+                else:
+                    # Create subject
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO subjects (name, user_id) VALUES (?, ?)", (sub_name, req.target_user_id))
+                    new_sub_id = cur.lastrowid
+                
+                # V1.3.26: Check for Duplicate (Same Text + Same Subject + Same Target User)
+                # We use strict text matching to prevent clutter
+                duplicate_check = conn.execute(
+                    "SELECT id FROM questions WHERE user_id = ? AND subject_id = ? AND question_text = ?",
+                    (req.target_user_id, new_sub_id, q['question_text'])
+                ).fetchone()
+                
+                if duplicate_check:
+                    stats["duplicate"] += 1
+                    continue
+                
+                # Clone Question
                 cur = conn.cursor()
-                cur.execute("INSERT INTO subjects (name, user_id) VALUES (?, ?)", (sub_name, req.target_user_id))
-                new_sub_id = cur.lastrowid
-            
-            # Clone Question
-            cur = conn.cursor()
-            cur.execute('''
-                INSERT INTO questions (subject_id, question_text, question_type, option_a, option_b, option_c, option_d, correct_answer, difficulty, source, user_id, paper_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-            ''', (
-                new_sub_id, 
-                q['question_text'], 
-                q['question_type'], 
-                q.get('option_a'), 
-                q.get('option_b'), 
-                q.get('option_c'), 
-                q.get('option_d'), 
-                q['correct_answer'], 
-                q.get('difficulty', 0), 
-                q.get('source'), 
-                req.target_user_id
-            ))
-            new_qid = cur.lastrowid
-            
-            # Clone Images
-            imgs = conn.execute("SELECT * FROM question_images WHERE question_id = ?", (qid,)).fetchall()
-            for img in imgs:
-                # We can reuse the same image path since it's just a file reference. 
-                # (Unless we want to physically copy files, but same path is fine for now as they are shared/static)
-                cur.execute("INSERT INTO question_images (question_id, image_type, path) VALUES (?, ?, ?)", (new_qid, img['image_type'], img['path']))
-            
-            success_count += 1
+                cur.execute('''
+                    INSERT INTO questions (subject_id, question_text, question_type, option_a, option_b, option_c, option_d, correct_answer, difficulty, source, user_id, paper_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+                ''', (
+                    new_sub_id, 
+                    q['question_text'], 
+                    q['question_type'], 
+                    q.get('option_a'), 
+                    q.get('option_b'), 
+                    q.get('option_c'), 
+                    q.get('option_d'), 
+                    q['correct_answer'], 
+                    q.get('difficulty', 0), 
+                    q.get('source'), 
+                    req.target_user_id
+                ))
+                new_qid = cur.lastrowid
+                
+                # Clone Images
+                imgs = conn.execute("SELECT * FROM question_images WHERE question_id = ?", (qid,)).fetchall()
+                for img in imgs:
+                    # We can reuse the same image path since it's just a file reference. 
+                    cur.execute("INSERT INTO question_images (question_id, image_type, path) VALUES (?, ?, ?)", (new_qid, img['image_type'], img['path']))
+                
+                stats["success"] += 1
+            except Exception as e:
+                print(f"Distribute Error (QID {qid}): {e}")
+                stats["failed"] += 1
             
         conn.commit()
-        return JSONResponse({"status": "success", "count": success_count})
+        return JSONResponse({"status": "success", "stats": stats})
     except Exception as e:
         conn.rollback()
         print(f"Batch Distribute Error: {e}")
