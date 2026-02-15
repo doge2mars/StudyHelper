@@ -13,7 +13,7 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-APP_VERSION = "V1.3.26"
+APP_VERSION = "V1.3.27"
 
 app = FastAPI(title=f'Study Helper Pro {APP_VERSION}', version=APP_VERSION)
 pillow_heif.register_heif_opener()

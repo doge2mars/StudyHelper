@@ -133,6 +133,12 @@
     - [x] **Update**: Replace hardcoded versions in HTML with `{{ APP_VERSION }}` variable.
     - [x] **Fix**: Ensure `settings.html` and `base.html` use the dynamic variable.
 
+- [x] **V1.3.26 Feature: Smart Batch Distribution (De-duplication)**
+    - [x] **Backend**: Update `batch_distribute` to check for duplicates (`question_text` + `subject`).
+    - [x] **Backend**: Return detailed stats (`count`, `success`, `failed`, `duplicate`).
+    - [x] **Frontend**: Update `confirmDistribute` to show a detailed summary popup.
+    - [x] **Version**: Bump to V1.3.26.
+
 - [x] V1.3.12: System Diagnosis & Database Repair Tool (The "Nuclear Option")
     - [x] **Plan**: Implementation Plan updated.
     - [x] **Backend**: Add `/api/admin/diagnose` and `/api/admin/fix_db` routes.

@@ -89,6 +89,11 @@
                             {{ q.s_name }}
                         </td>
                         <td style="padding: 1rem; text-align: center;">
+                            {% if q.is_difficult %}
+                            <button onclick="event.stopPropagation(); unmarkDifficult({{ q.id }})" class="btn btn-icon"
+                                style="color: var(--warning);" title="移除难点"><i
+                                    class="fas fa-star-half-alt"></i></button>
+                            {% endif %}
                             <button onclick="event.stopPropagation(); deleteQuestion({{ q.id }})" class="btn btn-icon"
                                 style="color: var(--danger);" title="删除"><i class="fas fa-trash-alt"></i></button>
                         </td>
