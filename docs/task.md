@@ -172,13 +172,14 @@
     - [x] **Study Mode**: Add Toast feedback when submitting self-marking results for subjective questions in `study.html`.
     - [x] **Deployment**: Commit, Push, and Notify User.
 
-- [x] V1.3.23 Hotfix: Deployment & Stability
+- [ ] V1.3.23 Hotfix: Deployment & Stability
     - [x] Fix `NameError` (missing imports) in `main.py`.
     - [x] Fix `manage` page crash (remove `nickname` column).
     - [x] **Enhancement**: Add clickable question preview to "Manage" page.
     - [x] **Enhancement**: Add clickable question preview to "Subject List" (restore row click).
     - [x] **Fix**: Javascript syntax error in `manage.html` (Select All/Batch Actions).
     - [x] **Fix**: Restore missing "Distribute Modal" HTML in `manage.html`.
+    - [x] **Fix**: Resolve "No item with that key" error in `batch_distribute` (backend row conversion).
     - [x] **Deployment**: Commit, Push, and Notify User.
 
 - [x] V1.3.21: Fix Blank Screen Regression (CRITICAL)

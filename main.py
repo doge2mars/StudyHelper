@@ -1230,9 +1230,21 @@ async def batch_distribute(req: BatchDistributeRequest, request: Request):
             # Clone Question
             cur = conn.cursor()
             cur.execute('''
-                INSERT INTO questions (subject_id, question_text, question_type, options, correct_answer, difficulty, source, user_id, paper_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
-            ''', (new_sub_id, q['question_text'], q['question_type'], q.get('options'), q['correct_answer'], q.get('difficulty', 0), q.get('source'), req.target_user_id))
+                INSERT INTO questions (subject_id, question_text, question_type, option_a, option_b, option_c, option_d, correct_answer, difficulty, source, user_id, paper_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            ''', (
+                new_sub_id, 
+                q['question_text'], 
+                q['question_type'], 
+                q.get('option_a'), 
+                q.get('option_b'), 
+                q.get('option_c'), 
+                q.get('option_d'), 
+                q['correct_answer'], 
+                q.get('difficulty', 0), 
+                q.get('source'), 
+                req.target_user_id
+            ))
             new_qid = cur.lastrowid
             
             # Clone Images
