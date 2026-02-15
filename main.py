@@ -313,28 +313,41 @@ async def subject_detail(request: Request, sid: int):
     # Filter: Pure Bank (Owned & No Paper) OR Active Errors (from any source)
     # V1.3.1 Logic + V1.3.3 Persistent Error
     # Show owned questions OR (paper questions IF they have wrong/difficult/history status)
+    # V1.3.16: Strict Scope & Sync Logic
+    # 1. Fetch uqs.user_id to determine 'has_record'
+    # 2. Strict Filter: paper_id IS NULL (Pure Subject Bank)
     qs = conn.execute('''
-        SELECT q.*, uqs.wrong_count, uqs.is_difficult, uqs.history_wrong 
+        SELECT q.*, 
+               uqs.wrong_count, uqs.is_difficult, uqs.history_wrong,
+               uqs.user_id as uqs_uid
         FROM questions q
         LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
         WHERE q.subject_id = ? 
+        AND q.paper_id IS NULL
         AND (
-            (q.user_id = ? AND q.paper_id IS NULL) 
+            q.user_id = ? 
             OR 
             (uqs.wrong_count > 0 OR uqs.is_difficult = 1 OR uqs.history_wrong = 1)
         )
         ORDER BY q.created_at DESC
     ''', (user['id'], sid, user['id'])).fetchall()
     
+    # Process for template
+    questions = []
+    for r in qs:
+        d = dict(r)
+        d['has_record'] = d['uqs_uid'] is not None
+        questions.append(d)
+
     # V1.3.5: Calculate Stats
     stats = {
-        "total": len(qs),
-        "wrong": sum(1 for q in qs if q['wrong_count'] > 0 or q['history_wrong'] == 1),
-        "difficult": sum(1 for q in qs if q['is_difficult'] == 1)
+        "total": len(questions),
+        "wrong": sum(1 for q in questions if q['wrong_count'] and q['wrong_count'] > 0),
+        "difficult": sum(1 for q in questions if q['is_difficult'] == 1)
     }
 
     conn.close()
-    return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": [dict(q) for q in qs], "stats": stats})
+    return templates.TemplateResponse("subject.html", {"request": request, "app_name": get_app_name(), "user": user, "subject": dict(s), "questions": questions, "stats": stats})
 
 async def save_img(f: UploadFile) -> str:
     ext = os.path.splitext(f.filename)[1].lower(); uid = uuid.uuid4().hex; img_name = f"{uid}.webp"; tmp = f"/tmp/{uid}{ext}"
@@ -412,16 +425,7 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
     query += access_condition
     
     # 2. Mode Filter
-    if mode == "error": 
-        # Error mode should probably focus on CURRENTLY wrong, but maybe user wants historical too?
-        # User said "1.刷完的题没有错... 错会取消". 
-        # If "Error Mode" is for drilling mistakes, it makes sense to drill CURRENT MISTAKES (`wrong_count > 0`).
-        # If they want to review OLD mistakes, maybe we need another mode?
-        # For now, keep "Error" = Current Wrong.
-        # But wait, if "Error Mode" is "Review Mistakes", and I just did it right, it disappears from this list. That is correct behavior for "Drilling".
-        # The user's complaint was about the "List View" (Paper/Subject list) losing the MARK.
-        query += " AND uqs.wrong_count > 0"
-    elif mode == "difficult": 
+    if mode == "difficult": 
         query += " AND uqs.is_difficult = 1 AND q.paper_id IS NULL"
     elif mode == "all_loop":
         # V1.3.7 FIX: User explicitly wants "Start Study" in Subject to NOT include Paper questions.
