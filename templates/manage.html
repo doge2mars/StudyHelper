@@ -54,7 +54,10 @@
                         </td>
                         <td style="padding: 1rem; text-align: center;">
                             <span class="badge" style="background: rgba(0,0,0,0.05); font-size: 0.75rem;">
-                                {{ '选择题' if q.question_type == 'select' else '非选择题' }}
+                                {% if q.question_type == 'objective' %}单选
+                                {% elif q.question_type == 'multi' %}多选
+                                {% elif q.question_type == 'fill' %}填空
+                                {% else %}大题{% endif %}
                             </span>
                             {# V1.3.19: Show Difficult Status in Manage #}
                             {% if q.is_difficult %}
