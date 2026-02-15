@@ -139,6 +139,19 @@
     - [x] **Frontend**: Update `confirmDistribute` to show a detailed summary popup.
     - [x] **Version**: Bump to V1.3.26.
 
+- [x] **V1.3.27 Fix: Restore "Unmark Difficult" Button**
+    - [x] **Frontend**: Check `manage.html` for missing button/function.
+    - [x] **Backend**: Verify `unmark_difficult` API exists.
+    - [x] **Restore**: Add "去除难点" button back to question cards.
+    - [x] **Version**: Bump to V1.3.27.
+
+# Future Roadmap (V2.0)
+- [ ] **V2.0 Feature: Grade Level Management**
+    - [ ] **Plan**: Approved in `implementation_plan.md`.
+    - [ ] **Backend**: Add `grade_level` column to `questions` and `papers`.
+    - [ ] **Frontend**: Implement Global Grade Selector.
+    - [ ] **Migration**: Tool for bulk-assigning grades.
+
 - [x] V1.3.12: System Diagnosis & Database Repair Tool (The "Nuclear Option")
     - [x] **Plan**: Implementation Plan updated.
     - [x] **Backend**: Add `/api/admin/diagnose` and `/api/admin/fix_db` routes.

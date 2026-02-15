@@ -288,3 +288,47 @@ User will:
 - **Manual**: Log in as that student. Check "Subject Bank". Questions should be there.
 - **Manual**: Select questions. Click "Delete". They should disappear.
 - **Manual**: Click a question row in Subject List. Should open preview.
+
+# Protocol: Grade Level Management (Future Roadmap v2.0)
+
+## 🎯 Goal
+Enable users (teachers) to organize content by Grade Level (e.g., Grade 7, Grade 8, Grade 9) to prevent data clutter and improve retrieval speed.
+
+## 🏗️ Proposed Architecture
+
+### 1. Database Schema Changes
+We need to tag core entities with a "Grade" attribute.
+#### `questions` Table
+- Add `grade_level` (TEXT) column.
+- Default value: `NULL` or `'General'` (通用).
+- Index on `(user_id, grade_level, subject_id)` for fast filtering.
+
+#### `papers` Table
+- Add `grade_level` (TEXT) column.
+- Inherit from the questions selected or manually set by user.
+
+### 2. User Interface Updates
+
+#### Global Context Switcher (Recommended)
+- **Top Navigation Bar**: Add a "Grade Selector" dropdown (e.g., "All Grades", "Grade 7", "Grade 8").
+- **Effect**: Setting this filters *all* subsequent views (Subject List, Question Bank, Paper Center) to show only data matching that grade.
+
+#### Question Management (`manage.html`)
+- **Filter**: Add "Grade" dropdown filter next to "Subject" and "Type".
+- **Batch Edit**: Allow batch-moving questions between grades.
+
+#### Question Entry (`add_question.html`)
+- **New Field**: "Grade Level" dropdown (auto-selected based on current global context).
+
+### 3. Migration Strategy (V1.x -> V2.0)
+- **Backward Compatibility**: Existing questions are treated as "Uncategorized" or "All Grades".
+- **Bulk Tool**: Provide a "Batch Assign Grade" tool to help users quickly organize existing data.
+
+## 📝 Implementation Steps (Draft)
+1.  **Backend**: `ALTER TABLE` commands in `init_db`.
+2.  **Backend**: Update `Question` Pydantic models and API routes (`/api/questions`, `/api/add`).
+3.  **Frontend**: Update `base.html` (navbar), `manage.html` (filters), `add.html` (inputs).
+4.  **Middleware**: Add a session-based "Current Grade" preference.
+
+---
+*This document serves as a discussion basis for the V2.x feature set.*

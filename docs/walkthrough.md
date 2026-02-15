@@ -1,4 +1,13 @@
-# Study Helper Pro V1.3.23 Walkthrough
+# Study Helper Pro V1.3.27 Walkthrough
+
+## 🛠️ V1.3.27: Restoration of "Unmark Difficult"
+- **Fixed Issue**: Restored the "Unmark Difficult" (去除难点) button in Question Bank Management, which was accidentally removed.
+- **Usage**: Click the yellow star button <i class="fas fa-star-half-alt"></i> in `manage.html` to remove the difficult status.
+
+## 🚀 V1.3.26: Smart Distribution & Stats
+- **Smart Tech**: Prevents duplicate distribution. If a target user already has the valid question, it is skipped.
+- **Detailed Report**: Shows a summary popup with Total, Success, Duplicate, and Failed counts after distribution.
+- **Backend**: Updated `/api/batch-distribute` to return detailed stats.
 
 ## 🚀 V1.3.23: Admin Bulk Distribution & UI Cleanup
 - **Batch Actions**: Added checkboxes to the **Manage** page. Admins can now **Batch Delete** or **Batch Distribute** questions.
