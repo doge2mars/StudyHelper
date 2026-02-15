@@ -519,6 +519,12 @@ async def slice_upload(request: Request, file: Optional[UploadFile] = File(None)
 
 @app.post("/api/slice-save")
 @app.post("/api/slice-save")
+class BatchDistributeRequest(BaseModel):
+    question_ids: List[int]
+    target_user_id: int
+
+class BatchDeleteRequest(BaseModel):
+    question_ids: List[int]
 async def slice_save(
     request: Request,
     sid: int = Form(...),
@@ -714,7 +720,8 @@ async def manage(request: Request, sid: Optional[int] = None):
             d['is_difficult'] = d['user_is_difficult']
         questions.append(d)
         
-    conn.close(); return templates.TemplateResponse("manage.html", {"request": request, "app_name": get_app_name(), "user": user, "questions": questions, "subjects": [dict(s) for s in subs], "current_sid": sid})
+    all_users = conn.execute("SELECT id, username, nickname, role FROM users ORDER BY username").fetchall()
+    conn.close(); return templates.TemplateResponse("manage.html", {"request": request, "app_name": get_app_name(), "user": user, "questions": questions, "subjects": [dict(s) for s in subs], "current_sid": sid, "all_users": [dict(u) for u in all_users]})
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
@@ -1173,6 +1180,101 @@ async def test_record_db(request: Request):
     except Exception as e:
         print(f"Deep Diag Error: {e}", flush=True)
         return {"status": "error", "logs": logs, "error_msg": str(e)}
+    finally:
+        conn.close()
+
+
+class BatchDistributeRequest(BaseModel):
+    question_ids: List[int]
+    target_user_id: int
+
+class BatchDeleteRequest(BaseModel):
+    question_ids: List[int]
+
+@app.post("/api/batch-distribute")
+async def batch_distribute(req: BatchDistributeRequest, request: Request):
+    user = await get_current_user(request)
+    if not user: return JSONResponse({"error": "Unauthorized"}, 401)
+    
+    conn = get_db()
+    try:
+        # Check target user
+        target_user = conn.execute("SELECT * FROM users WHERE id = ?", (req.target_user_id,)).fetchone()
+        if not target_user:
+            return JSONResponse({"error": "Target user not found"}, 404)
+
+        success_count = 0
+        for qid in req.question_ids:
+            # Get Source Q
+            q = conn.execute("SELECT * FROM questions WHERE id = ?", (qid,)).fetchone()
+            if not q: continue
+            
+            # Get Source Subject Name
+            src_sub = conn.execute("SELECT name FROM subjects WHERE id = ?", (q['subject_id'],)).fetchone()
+            if not src_sub: continue
+            sub_name = src_sub['name']
+            
+            # Find/Create Target Subject
+            # Check if target user has this subject
+            tgt_sub = conn.execute("SELECT id FROM subjects WHERE user_id = ? AND name = ?", (req.target_user_id, sub_name)).fetchone()
+            if tgt_sub:
+                new_sub_id = tgt_sub['id']
+            else:
+                # Create subject
+                cur = conn.cursor()
+                cur.execute("INSERT INTO subjects (name, user_id) VALUES (?, ?)", (sub_name, req.target_user_id))
+                new_sub_id = cur.lastrowid
+            
+            # Clone Question
+            cur = conn.cursor()
+            cur.execute('''
+                INSERT INTO questions (subject_id, question_text, question_type, options, correct_answer, difficulty, source, user_id, paper_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
+            ''', (new_sub_id, q['question_text'], q['question_type'], q['options'], q['correct_answer'], q['difficulty'], q['source'], req.target_user_id))
+            new_qid = cur.lastrowid
+            
+            # Clone Images
+            imgs = conn.execute("SELECT * FROM question_images WHERE question_id = ?", (qid,)).fetchall()
+            for img in imgs:
+                # We can reuse the same image path since it's just a file reference. 
+                # (Unless we want to physically copy files, but same path is fine for now as they are shared/static)
+                cur.execute("INSERT INTO question_images (question_id, image_type, path) VALUES (?, ?, ?)", (new_qid, img['image_type'], img['path']))
+            
+            success_count += 1
+            
+        conn.commit()
+        return JSONResponse({"status": "success", "count": success_count})
+    except Exception as e:
+        conn.rollback()
+        print(f"Batch Distribute Error: {e}")
+        return JSONResponse({"error": str(e)}, 500)
+    finally:
+        conn.close()
+
+@app.post("/api/batch-delete")
+async def batch_delete(req: BatchDeleteRequest, request: Request):
+    user = await get_current_user(request)
+    if not user: return JSONResponse({"error": "Unauthorized"}, 401)
+    
+    conn = get_db()
+    try:
+        count = 0
+        for qid in req.question_ids:
+            # Verify ownership (or admin)
+            q = conn.execute("SELECT user_id FROM questions WHERE id = ?", (qid,)).fetchone()
+            if not q: continue
+            if q['user_id'] != user['id'] and user['role'] != 'admin': continue # Skip if not owner/admin
+            
+            conn.execute("DELETE FROM questions WHERE id = ?", (qid,))
+            conn.execute("DELETE FROM question_images WHERE question_id = ?", (qid,))
+            conn.execute("DELETE FROM user_question_status WHERE question_id = ?", (qid,))
+            count += 1
+        
+        conn.commit()
+        return JSONResponse({"status": "success", "count": count})
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse({"error": str(e)}, 500)
     finally:
         conn.close()
 
