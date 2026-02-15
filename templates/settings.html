@@ -3,17 +3,18 @@
 <div class="glass-card" style="max-width:700px; margin:auto">
     <h2 style="margin-bottom:2rem"><i class="fas fa-sliders-h"></i> 系统控制中心</h2>
 
-    <!-- Section 0: System Diagnosis (V1.3.12) -->
-    <section id="diagnosis-card" style="display:none; margin-bottom:2.5rem">
+    <!-- Section 0: System Diagnosis (V1.3.13) -->
+    <section id="diagnosis-card" style="margin-bottom:2.5rem">
         <div class="glass-card"
-            style="background:rgba(231, 76, 60, 0.1); border:1px solid var(--danger); padding:1.2rem">
-            <h3 style="color:var(--danger); margin-top:0"><i class="fas fa-heartbeat"></i> 系统诊断警报</h3>
-            <p style="color:var(--danger)"><strong>检测到严重数据库问题：</strong> 缺少 `history_wrong` 字段。</p>
-            <p style="font-size:0.9rem; color:#636e72">这会导致“错题/难点”状态无法保存，统计数据为0。由于NAS权限或环境问题，自动修复可能失败。</p>
-            <div style="margin-top:1rem">
+            style="background:rgba(231, 76, 60, 0.05); border:1px solid rgba(231, 76, 60, 0.3); padding:1.2rem">
+            <h3 style="color:var(--danger); margin-top:0"><i class="fas fa-heartbeat"></i> 系统诊断与修复 (System Diagnosis)
+            </h3>
+            <p style="font-size:0.9rem; color:#636e72">如果不确定数据库是否正常，或者遇到“错题/难点”无法保存的问题，请点击下方按钮进行强制修复。</p>
+            <div style="margin-top:1rem; display:flex; gap:1rem; align-items:center">
                 <button id="btn-fix-db" class="btn btn-danger">
-                    <i class="fas fa-tools"></i> 立即强制修复数据库
+                    <i class="fas fa-tools"></i> 强制修复数据库结构
                 </button>
+                <div id="status-indicator"></div>
             </div>
             <div id="fix-logs"
                 style="margin-top:1rem; font-family:monospace; font-size:0.85rem; background:rgba(0,0,0,0.05); padding:0.8rem; border-radius:6px; display:none">
@@ -130,7 +131,7 @@
                 {{ app_name }}
             </div>
             <div style="font-size:0.9rem; color:var(--accent); font-weight:600; margin-bottom:1.5rem">Study Helper Pro
-                V1.3.7</div>
+                V1.3.13</div>
             <p style="font-size:0.9rem; color:#636e72; line-height:1.7; text-align:left; margin-bottom:2rem">
                 专为家庭教育设计的智能助学系统。支持试卷切题、多端同步、错题强化练习，帮助孩子高效攻克知识薄弱点。
             </p>
