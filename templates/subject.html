@@ -74,17 +74,17 @@
                     {% if q.wrong_count and q.wrong_count > 0 %}
                     <span class="badge" style="background: rgba(255, 118, 117, 0.1); color: #d63031;">错 {{ q.wrong_count
                         }} 次</span>
-                    {# V1.3.15: Hide History Wrong (Orange) to allow "Unmarking" to Green on success #}
-                    {# elif q.history_wrong == 1 #}
-                    {# <span class="badge" style="background: rgba(255, 159, 67, 0.1); color: #e67e22;"
-                        title="曾做错">曾错</span> #}
+                    {# V1.3.15: Revert to show History Wrong (Orange) as user requested matching Paper Center logic #}
+                    {% elif q.history_wrong == 1 %}
+                    <span class="badge" style="background: rgba(255, 159, 67, 0.1); color: #e67e22;"
+                        title="曾做错">曾错</span>
                     {% endif %}
 
                     {% if q.is_difficult %}
                     <span class="badge" style="background: rgba(214, 48, 49, 0.1); color: var(--danger);">⭐ 困难</span>
                     {% endif %}
 
-                    {% if (not q.wrong_count or q.wrong_count == 0) and not q.is_difficult %}
+                    {% if (not q.wrong_count or q.wrong_count == 0) and not q.history_wrong and not q.is_difficult %}
                     <span class="badge" style="background: rgba(0, 184, 148, 0.1); color: var(--success);">掌握</span>
                     {% endif %}
                 </td>

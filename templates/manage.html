@@ -69,8 +69,8 @@
                                         class="fas fa-eye"></i></a>
                                 {% if q.is_difficult %}
                                 <button onclick="unmarkDifficult({{ q.id }})" class="btn btn-icon"
-                                    style="color: var(--warning);" title="移出难点/清除错题"><i
-                                        class="fas fa-check-circle"></i></button>
+                                    style="color: var(--warning);" title="清除难点/错题标记"><i
+                                        class="fas fa-eraser"></i></button>
                                 {% endif %}
                                 <button onclick="deleteQuestion({{ q.id }})" class="btn btn-icon"
                                     style="color: var(--danger);" title="删除"><i class="fas fa-trash-alt"></i></button>
