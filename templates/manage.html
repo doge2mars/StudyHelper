@@ -107,6 +107,111 @@
     </main>
 </div>
 <script>
+    // --- Batch Operations ---
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('select-all');
+        const checkboxes = document.querySelectorAll('.q-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        updateToolbar();
+    }
+
+    function updateToolbar() {
+        const checkboxes = document.querySelectorAll('.q-checkbox:checked');
+        const count = checkboxes.length;
+        const btnDistribute = document.getElementById('btn-distribute');
+        const btnDelete = document.getElementById('btn-delete');
+
+        if (count > 0) {
+            btnDistribute.style.opacity = '1';
+            btnDistribute.style.pointerEvents = 'auto';
+            btnDelete.style.opacity = '1';
+            btnDelete.style.pointerEvents = 'auto';
+            btnDistribute.innerHTML = '<i class="fas fa-paper-plane"></i> 分发选中 (' + count + ')';
+            btnDelete.innerHTML = '<i class="fas fa-trash"></i> 删除选中 (' + count + ')';
+        } else {
+            btnDistribute.style.opacity = '0.5';
+            btnDistribute.style.pointerEvents = 'none';
+            btnDelete.style.opacity = '0.5';
+            btnDelete.style.pointerEvents = 'none';
+            btnDistribute.innerHTML = '<i class="fas fa-paper-plane"></i> 分发选中';
+            btnDelete.innerHTML = '<i class="fas fa-trash"></i> 删除选中';
+        }
+    }
+
+    // --- Distribute Modal ---
+    function openDistributeModal() {
+        const count = document.querySelectorAll('.q-checkbox:checked').length;
+        if (count === 0) return;
+        document.getElementById('dist-count').innerText = count;
+        document.getElementById('distribute-modal').style.display = 'flex';
+    }
+
+    function closeDistributeModal() {
+        document.getElementById('distribute-modal').style.display = 'none';
+    }
+
+    async function confirmDistribute() {
+        const checkboxes = document.querySelectorAll('.q-checkbox:checked');
+        const questionIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        const targetUserId = parseInt(document.getElementById('target-user').value);
+
+        if (questionIds.length === 0 || !targetUserId) return;
+
+        const btn = document.querySelector('#distribute-modal button.btn-primary');
+        const originalText = btn.innerText;
+        btn.innerText = '分发中...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/batch-distribute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question_ids: questionIds, target_user_id: targetUserId })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✅ 成功分发 ${data.count} 道题目`, true);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast("❌ " + (data.error || "分发失败"), false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            closeDistributeModal();
+        }
+    }
+
+    async function batchDelete() {
+        const checkboxes = document.querySelectorAll('.q-checkbox:checked');
+        const questionIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (questionIds.length === 0) return;
+        if (!confirm(`确定要删除这 ${questionIds.length} 道题目吗？此操作不可恢复！`)) return;
+
+        try {
+            const res = await fetch('/api/batch-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question_ids: questionIds })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✅ 成功删除 ${data.count} 道题目`, true);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast("❌ " + (data.error || "删除失败"), false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        }
+    }
+
+    // --- Individual Operations ---
     async function deleteQuestion(qid) {
         if (!confirm('确定从题库中永久删除这道题吗？')) return;
         try {
