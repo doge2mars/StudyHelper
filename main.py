@@ -422,11 +422,14 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
         # The user's complaint was about the "List View" (Paper/Subject list) losing the MARK.
         query += " AND uqs.wrong_count > 0"
     elif mode == "difficult": 
-        query += " AND uqs.is_difficult = 1"
+        query += " AND uqs.is_difficult = 1 AND q.paper_id IS NULL"
     elif mode == "all_loop":
         # V1.3.7 FIX: User explicitly wants "Start Study" in Subject to NOT include Paper questions.
         # "All Loop" now means "All Questions in this Subject's BANK".
         query += " AND q.paper_id IS NULL"
+    elif mode == "error": 
+        # V1.3.15: Error mode should also be Pure Subject Questions
+        query += " AND uqs.wrong_count > 0 AND q.paper_id IS NULL"
     else: 
         # Default/Normal/Pure
         query += " AND (q.user_id = ? AND q.paper_id IS NULL)"
@@ -636,6 +639,8 @@ async def delete_paper(request: Request, pid: int):
     # Check ownership
     p = conn.execute("SELECT user_id FROM papers WHERE id = ?", (pid,)).fetchone()
     if p and p['user_id'] == user['id']:
+        # V1.3.15: Cascade delete questions first
+        conn.execute("DELETE FROM questions WHERE paper_id = ?", (pid,))
         conn.execute("DELETE FROM papers WHERE id = ?", (pid,))
         conn.commit()
     conn.close()
