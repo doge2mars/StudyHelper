@@ -316,9 +316,12 @@ async def subject_detail(request: Request, sid: int):
     # V1.3.16: Strict Scope & Sync Logic
     # 1. Fetch uqs.user_id to determine 'has_record'
     # 2. Strict Filter: paper_id IS NULL (Pure Subject Bank)
+    # V1.3.18 FIX: Alias uqs columns to avoid collision with legacy q.wrong_count
     qs = conn.execute('''
         SELECT q.*, 
-               uqs.wrong_count, uqs.is_difficult, uqs.history_wrong,
+               uqs.wrong_count as user_wrong_count, 
+               uqs.is_difficult as user_is_difficult, 
+               uqs.history_wrong as user_history_wrong,
                uqs.user_id as uqs_uid
         FROM questions q
         LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ?
@@ -336,14 +339,23 @@ async def subject_detail(request: Request, sid: int):
     questions = []
     for r in qs:
         d = dict(r)
+        # V1.3.18: Priority Overwrite (User Status > Legacy Question Status)
+        # uqs columns will be None if no join, so check for Not None
+        if d['user_wrong_count'] is not None:
+            d['wrong_count'] = d['user_wrong_count']
+        if d['user_is_difficult'] is not None:
+             d['is_difficult'] = d['user_is_difficult']
+        if d['user_history_wrong'] is not None:
+            d['history_wrong'] = d['user_history_wrong']
+            
         d['has_record'] = d['uqs_uid'] is not None
         questions.append(d)
 
     # V1.3.5: Calculate Stats
     stats = {
         "total": len(questions),
-        "wrong": sum(1 for q in questions if q['wrong_count'] and q['wrong_count'] > 0),
-        "difficult": sum(1 for q in questions if q['is_difficult'] == 1)
+        "wrong": sum(1 for q in questions if q.get('wrong_count', 0) > 0),
+        "difficult": sum(1 for q in questions if q.get('is_difficult') == 1)
     }
 
     conn.close()
