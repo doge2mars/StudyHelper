@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException, Depends, status
+from fastapi import FastAPI, Request, Form, UploadFile, File, HTTPException, Depends, status, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import sqlite3, os, uuid, shutil, zipfile, json, base64
 from datetime import datetime, date, timedelta
 from typing import Optional, List
+from pydantic import BaseModel
 from PIL import Image
 import pillow_heif
 from pdf2image import convert_from_path, pdfinfo_from_path
