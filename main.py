@@ -122,6 +122,7 @@ def init_db():
         question_id INTEGER,
         wrong_count INTEGER DEFAULT 0,
         is_difficult BOOLEAN DEFAULT 0,
+        history_wrong INTEGER DEFAULT 0,
         PRIMARY KEY (user_id, question_id),
         FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
         FOREIGN KEY (question_id) REFERENCES questions (id) ON DELETE CASCADE
@@ -134,10 +135,19 @@ def init_db():
     admin_hash = pwd_context.hash("admin123")
     c.execute("INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)", ("admin", admin_hash, "admin"))
     
-    # V1.3.4 Auto-Migration: Ensure history_wrong exists
+    # V1.3.4+ Auto-Migration: Ensure history_wrong exists (Robust Check)
     try:
-        # Check if column exists to avoid error logging (though add column handles it gracefully usually)
-        c.execute("SELECT history_wrong FROM user_question_status LIMIT 1")
+        # Check if column exists efficiently
+        info = c.execute("PRAGMA table_info(user_question_status)").fetchall()
+        cols = [col[1] for col in info]
+        if 'history_wrong' not in cols:
+            print("Migrating: Adding history_wrong column...")
+            c.execute("ALTER TABLE user_question_status ADD COLUMN history_wrong INTEGER DEFAULT 0")
+            # Backfill Logic: If wrong_count > 0, set history_wrong = 1
+            c.execute("UPDATE user_question_status SET history_wrong = 1 WHERE wrong_count > 0")
+            conn.commit()
+    except Exception as e:
+        print(f"Migration Error (history_wrong): {e}")
     except sqlite3.OperationalError:
         print("V1.3.4: Adding history_wrong column...")
         try:
@@ -758,8 +768,17 @@ async def record(request: Request):
             cur.execute("UPDATE user_question_status SET wrong_count = ?, history_wrong = 1, is_difficult = ? WHERE user_id = ? AND question_id = ?", (new_wc, new_diff, user['id'], qid))
     
     # Record study log with LOCAL TIME
-    cur.execute("INSERT INTO study_records (user_id, question_id, is_correct, studied_at) VALUES (?,?,?, datetime('now', 'localtime'))", (user['id'], qid, ok))
-    conn.commit(); conn.close(); return {"status": "ok"}
+    try:
+        cur.execute("INSERT INTO study_records (user_id, question_id, is_correct, studied_at) VALUES (?,?,?, datetime('now', 'localtime'))", (user['id'], qid, ok))
+        conn.commit()
+    except Exception as e:
+        print(f"Record API Error: {e}")
+        conn.rollback() # Ensure rollback on error to release locks
+        return JSONResponse({"error": f"Database Error: {str(e)}"}, status_code=500)
+    finally:
+        conn.close()
+    
+    return {"status": "ok"}
 
 @app.post("/api/delete/{qid}")
 async def delete_q(request: Request, qid: int):
