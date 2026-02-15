@@ -138,26 +138,39 @@ def init_db():
     
     # V1.3.4+ Auto-Migration: Ensure history_wrong exists (Robust Check)
     try:
-        # Check if column exists efficiently
+        # Check user_question_status
         info = c.execute("PRAGMA table_info(user_question_status)").fetchall()
         cols = [col[1] for col in info]
         if 'history_wrong' not in cols:
-            print("Migrating: Adding history_wrong column...")
+            print("Migrating: Adding history_wrong column to user_question_status...")
             c.execute("ALTER TABLE user_question_status ADD COLUMN history_wrong INTEGER DEFAULT 0")
-            # Backfill Logic: If wrong_count > 0, set history_wrong = 1
             c.execute("UPDATE user_question_status SET history_wrong = 1 WHERE wrong_count > 0")
             conn.commit()
-    except Exception as e:
-        print(f"Migration Error (history_wrong): {e}")
-    except sqlite3.OperationalError:
-        print("V1.3.4: Adding history_wrong column...")
-        try:
-            c.execute("ALTER TABLE user_question_status ADD COLUMN history_wrong INTEGER DEFAULT 0")
-            c.execute("UPDATE user_question_status SET history_wrong = 1 WHERE wrong_count > 0")
-            print("V1.3.4: Migration Complete (Column Added & Backfilled)")
-        except Exception as e:
-            print(f"V1.3.4 Migration Failed: {e}")
+            
+        # V1.3.24 Auto-Migration: Ensure questions table has new columns
+        q_info = c.execute("PRAGMA table_info(questions)").fetchall()
+        q_cols = [col[1] for col in q_info]
+        
+        # List of potentially missing columns and their definitions
+        missing_cols = [
+            ('difficulty', 'INTEGER DEFAULT 0'),
+            ('source', 'TEXT'),
+            ('wrong_count', 'INTEGER DEFAULT 0'),
+            ('is_difficult', 'BOOLEAN DEFAULT 0')
+        ]
+        
+        for col_name, col_def in missing_cols:
+            if col_name not in q_cols:
+                print(f"Migrating: Adding {col_name} column to questions...")
+                try:
+                    c.execute(f"ALTER TABLE questions ADD COLUMN {col_name} {col_def}")
+                    conn.commit()
+                except Exception as e:
+                     print(f"Migration Error (adding {col_name}): {e}")
 
+    except Exception as e:
+        print(f"Migration Global Error: {e}")
+        
     conn.commit()
     conn.close()
 

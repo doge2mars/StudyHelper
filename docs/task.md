@@ -180,6 +180,7 @@
     - [x] **Fix**: Javascript syntax error in `manage.html` (Select All/Batch Actions).
     - [x] **Fix**: Restore missing "Distribute Modal" HTML in `manage.html`.
     - [x] **Fix**: Resolve "No item with that key" error in `batch_distribute` (backend row conversion).
+    - [x] **Fix**: Resolve "table questions has no column named options" error (map to option_a...d).
     - [x] **Deployment**: Commit, Push, and Notify User.
 
 - [x] V1.3.21: Fix Blank Screen Regression (CRITICAL)
