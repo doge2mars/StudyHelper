@@ -273,21 +273,13 @@
             if (resp.ok) {
                 console.log("Record saved:", ok);
                 // V1.3.20: Add Feedback for Manual Record (Subjective)
-                // If called manually (not checkAnswer), we can infer by context or just always toast?
-                // checkAnswer already toasted. Let's just Toast again or check if existing toast?
-                // Actually, checkAnswer calls record(1/0). Manual buttons call record(true/false).
-                // Let's distinguish by type of 'ok'.
-                // But checkAnswer passes 1/0 which is truthy/falsy.
-                // Simplest: Just show "已标记为掌握/错误"
                 if (ok) showToast("🎉 已标记为正确/掌握", true);
                 else showToast("已标记为错误/难点", false);
             }
         } catch (e) {
+            console.error(e);
             showToast("❌ 记录失败", false);
         }
-        console.error(e);
-        alert('保存进度失败');
-    }
     }
 
     function nextQuestion() {
