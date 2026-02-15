@@ -244,4 +244,25 @@
         }
     }
 </script>
+
+<!-- Distribute Modal -->
+<div id="distribute-modal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div class="glass-card" style="width:400px; padding:2rem; background:white;">
+        <h3 style="margin-top:0;">分发试题</h3>
+        <p>将选中的 <span id="dist-count" style="font-weight:bold; color:var(--primary);">0</span> 道题目分发给：</p>
+        <select id="target-user"
+            style="width:100%; padding:0.5rem; margin-bottom:1.5rem; border:1px solid #ddd; border-radius:4px;">
+            {% for u in all_users %}
+            {% if u.id != user.id %}
+            <option value="{{ u.id }}">{{ u.username }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+        <div style="display:flex; justify-content:flex-end; gap:1rem;">
+            <button onclick="closeDistributeModal()" class="btn">取消</button>
+            <button onclick="confirmDistribute()" class="btn btn-primary">确认分发</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
