@@ -3,6 +3,24 @@
 <div class="glass-card" style="max-width:700px; margin:auto">
     <h2 style="margin-bottom:2rem"><i class="fas fa-sliders-h"></i> 系统控制中心</h2>
 
+    <!-- Section 0: System Diagnosis (V1.3.12) -->
+    <section id="diagnosis-card" style="display:none; margin-bottom:2.5rem">
+        <div class="glass-card"
+            style="background:rgba(231, 76, 60, 0.1); border:1px solid var(--danger); padding:1.2rem">
+            <h3 style="color:var(--danger); margin-top:0"><i class="fas fa-heartbeat"></i> 系统诊断警报</h3>
+            <p style="color:var(--danger)"><strong>检测到严重数据库问题：</strong> 缺少 `history_wrong` 字段。</p>
+            <p style="font-size:0.9rem; color:#636e72">这会导致“错题/难点”状态无法保存，统计数据为0。由于NAS权限或环境问题，自动修复可能失败。</p>
+            <div style="margin-top:1rem">
+                <button id="btn-fix-db" class="btn btn-danger">
+                    <i class="fas fa-tools"></i> 立即强制修复数据库
+                </button>
+            </div>
+            <div id="fix-logs"
+                style="margin-top:1rem; font-family:monospace; font-size:0.85rem; background:rgba(0,0,0,0.05); padding:0.8rem; border-radius:6px; display:none">
+            </div>
+        </div>
+    </section>
+
     <!-- Section 1: User Profile -->
     <section style="margin-bottom:2.5rem">
         <h3 style="font-size:1.1rem; opacity:0.8">个人中心</h3>
@@ -152,14 +170,61 @@
         }
     }
 
-    window.onload = function () {
+    window.onload = async function () {
+        // V1.3.12 Diagnosis Check
+        try {
+            const res = await fetch('/api/admin/diagnose');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'error') {
+                    document.getElementById('diagnosis-card').style.display = 'block';
+                }
+            }
+        } catch (e) {
+            console.error("Diagnosis failed:", e);
+        }
+
+        // Bind Fix Button
+        const fixBtn = document.getElementById('btn-fix-db');
+        if (fixBtn) {
+            fixBtn.onclick = async function () {
+                if (!confirm("确定要强制修复数据库结构吗？")) return;
+
+                const btn = this;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 修复中...';
+                const logDiv = document.getElementById('fix-logs');
+                logDiv.style.display = 'block';
+                logDiv.innerText = "正在请求修复...";
+
+                try {
+                    const res = await fetch('/api/admin/fix_db', { method: 'POST' });
+                    const data = await res.json();
+
+                    if (res.ok && data.status === 'success') {
+                        logDiv.innerHTML = `<span style="color:var(--success)">✅ 修复成功!</span>\n` + data.logs.join('\n');
+                        btn.innerHTML = '<i class="fas fa-check"></i> 已修复';
+                        btn.className = 'btn btn-primary'; // Change color
+                        setTimeout(() => location.reload(), 3000);
+                    } else {
+                        logDiv.innerHTML = `<span style="color:var(--danger)">❌ 修复失败: ${data.error_msg || 'Unknown'}</span>\n` + (data.logs ? data.logs.join('\n') : '');
+                        btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 重试';
+                        btn.disabled = false;
+                    }
+                } catch (e) {
+                    logDiv.innerHTML = `<span style="color:var(--danger)">网络错误: ${e}</span>`;
+                    btn.disabled = false;
+                }
+            };
+        }
+
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('msg') === 'restore_ok') {
             showToast("✅ 备份已合并完成！", true);
         } else if (urlParams.get('msg') === 'reset_ok') {
             showToast("✨ 统计已归零", true);
         } else if (urlParams.get('msg') === 'nuclear_ok') {
-            showToast("ðŸ”¥ 系统已彻底清空，焕然一新", true);
+            showToast("🔥 系统已彻底清空，焕然一新", true);
         } else if (urlParams.get('msg') === 'pwd_ok') {
             showToast("✅ 密码修改成功！", true);
         } else if (urlParams.get('msg') === 'pwd_err') {

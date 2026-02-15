@@ -1017,6 +1017,79 @@ async def change_password(request: Request, old_pwd: str = Form(...), new_pwd: s
     conn.commit(); conn.close()
     return RedirectResponse("/settings?msg=pwd_ok", status_code=303)
 
+# ==============================================================================
+# V1.3.12: System Diagnosis & Repair (The "Nuclear Option")
+# ==============================================================================
+@app.get("/api/admin/diagnose")
+async def diagnose_db(request: Request):
+    user = await get_current_user(request)
+    if not user or user['role'] != 'admin':
+        return JSONResponse({"error": "Unauthorized"}, status_code=403)
+    
+    conn = get_db()
+    c = conn.cursor()
+    
+    # Check Schema
+    try:
+        info = c.execute("PRAGMA table_info(user_question_status)").fetchall()
+        cols = [col[1] for col in info]
+        missing = []
+        if 'history_wrong' not in cols: missing.append('history_wrong')
+        
+        return {
+            "status": "error" if missing else "ok",
+            "missing_columns": missing,
+            "db_path": DB_PATH
+        }
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
+@app.post("/api/admin/fix_db")
+async def fix_db(request: Request):
+    user = await get_current_user(request)
+    if not user or user['role'] != 'admin':
+        return JSONResponse({"error": "Unauthorized"}, status_code=403)
+        
+    conn = get_db()
+    c = conn.cursor()
+    logs = []
+    
+    try:
+        # Check again to be safe
+        info = c.execute("PRAGMA table_info(user_question_status)").fetchall()
+        cols = [col[1] for col in info]
+        
+        if 'history_wrong' not in cols:
+            logs.append("Missing 'history_wrong'. Adding column...")
+            c.execute("ALTER TABLE user_question_status ADD COLUMN history_wrong INTEGER DEFAULT 0")
+            logs.append("Column added.")
+            
+            # Backfill
+            logs.append("Backfilling data (wrong_count > 0 -> history_wrong = 1)...")
+            c.execute("UPDATE user_question_status SET history_wrong = 1 WHERE wrong_count > 0")
+            logs.append("Backfill complete.")
+            conn.commit()
+        else:
+            logs.append("'history_wrong' already exists. Performing sanity check...")
+            # Optional: Ensure backfill is consistent even if column exists
+            c.execute("UPDATE user_question_status SET history_wrong = 1 WHERE wrong_count > 0 AND history_wrong = 0")
+            changes = c.rowcount
+            if changes > 0:
+                logs.append(f"Fixed {changes} records where wrong_count > 0 but history_wrong was 0.")
+                conn.commit()
+            else:
+                logs.append("Data consistency verified.")
+
+        return {"status": "success", "logs": logs}
+    except Exception as e:
+        print(f"Fix DB Error: {e}")
+        conn.rollback()
+        return JSONResponse({"status": "error", "logs": logs, "error_msg": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
