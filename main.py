@@ -1207,8 +1207,9 @@ async def batch_distribute(req: BatchDistributeRequest, request: Request):
         success_count = 0
         for qid in req.question_ids:
             # Get Source Q
-            q = conn.execute("SELECT * FROM questions WHERE id = ?", (qid,)).fetchone()
-            if not q: continue
+            q_row = conn.execute("SELECT * FROM questions WHERE id = ?", (qid,)).fetchone()
+            if not q_row: continue
+            q = dict(q_row)
             
             # Get Source Subject Name
             src_sub = conn.execute("SELECT name FROM subjects WHERE id = ?", (q['subject_id'],)).fetchone()
@@ -1231,7 +1232,7 @@ async def batch_distribute(req: BatchDistributeRequest, request: Request):
             cur.execute('''
                 INSERT INTO questions (subject_id, question_text, question_type, options, correct_answer, difficulty, source, user_id, paper_id)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)
-            ''', (new_sub_id, q['question_text'], q['question_type'], q['options'], q['correct_answer'], q['difficulty'], q['source'], req.target_user_id))
+            ''', (new_sub_id, q['question_text'], q['question_type'], q.get('options'), q['correct_answer'], q.get('difficulty', 0), q.get('source'), req.target_user_id))
             new_qid = cur.lastrowid
             
             # Clone Images

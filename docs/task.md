@@ -172,6 +172,15 @@
     - [x] **Study Mode**: Add Toast feedback when submitting self-marking results for subjective questions in `study.html`.
     - [x] **Deployment**: Commit, Push, and Notify User.
 
+- [x] V1.3.23 Hotfix: Deployment & Stability
+    - [x] Fix `NameError` (missing imports) in `main.py`.
+    - [x] Fix `manage` page crash (remove `nickname` column).
+    - [x] **Enhancement**: Add clickable question preview to "Manage" page.
+    - [x] **Enhancement**: Add clickable question preview to "Subject List" (restore row click).
+    - [x] **Fix**: Javascript syntax error in `manage.html` (Select All/Batch Actions).
+    - [x] **Fix**: Restore missing "Distribute Modal" HTML in `manage.html`.
+    - [x] **Deployment**: Commit, Push, and Notify User.
+
 - [x] V1.3.21: Fix Blank Screen Regression (CRITICAL)
     - [x] **Analyze**: Check `study.html` for JS syntax errors (likely in `record` function).
     - [x] **Fix**: Correct the syntax error (extra brace/catch block?).
@@ -180,7 +189,6 @@
 - [x] V1.3.22: Fix Image Scaling Issue
     - [x] **Analyze**: Check `study.html` CSS. Images likely missing `max-width: 100%`.
     - [x] **Fix**: Add CSS rule `img { max-width: 100%; height: auto; }` to question content area.
-    - [x] **Deployment**: Commit, Push, and Notify User.
 
 - [x] V1.3.23: Admin Bulk Distribution & UI Cleanup
     - [x] **UI Polish**: `subject.html` & `manage.html` - Remove "Eye" icon, make row clickable.
