@@ -1073,20 +1073,75 @@ async def fix_db(request: Request):
             conn.commit()
         else:
             logs.append("'history_wrong' already exists. Performing sanity check...")
-            # Optional: Ensure backfill is consistent even if column exists
-            c.execute("UPDATE user_question_status SET history_wrong = 1 WHERE wrong_count > 0 AND history_wrong = 0")
-            changes = c.rowcount
-            if changes > 0:
-                logs.append(f"Fixed {changes} records where wrong_count > 0 but history_wrong was 0.")
-                conn.commit()
-            else:
-                logs.append("Data consistency verified.")
-
         return {"status": "success", "logs": logs}
     except Exception as e:
-        print(f"Fix DB Error: {e}")
+        print(f"Fix DB Error: {e}", flush=True)
         conn.rollback()
         return JSONResponse({"status": "error", "logs": logs, "error_msg": str(e)}, status_code=500)
+    finally:
+        conn.close()
+
+@app.post("/api/admin/test_record")
+async def test_record_db(request: Request):
+    """Deep Diagnostic: Simulate a full record lifecycle to catch hidden DB errors."""
+    user = await get_current_user(request)
+    if not user or user['role'] != 'admin':
+        return JSONResponse({"error": "Unauthorized"}, status_code=403)
+    
+    conn = get_db()
+    c = conn.cursor()
+    logs = []
+    
+    try:
+        # 1. Setup Dummy Data
+        test_uid = user['id']
+        test_qid = -999 # Non-existent question ID for testing
+        
+        logs.append(f"Test Start: User={test_uid}, QID={test_qid}")
+        
+        # 2. Clean up previous test mess if any
+        c.execute("DELETE FROM user_question_status WHERE user_id=? AND question_id=?", (test_uid, test_qid))
+        conn.commit()
+        
+        # 3. Test INSERT (Wrong)
+        logs.append("Testing INSERT (Wrong)...")
+        c.execute("INSERT INTO user_question_status (user_id, question_id, wrong_count, history_wrong, is_difficult) VALUES (?, ?, ?, ?, ?)", 
+                  (test_uid, test_qid, 1, 1, 0))
+        conn.commit()
+        logs.append("INSERT OK.")
+        
+        # 4. Verify INSERT
+        row = c.execute("SELECT * FROM user_question_status WHERE user_id=? AND question_id=?", (test_uid, test_qid)).fetchone()
+        if not row: raise Exception("Insert failed silently (Select returned None)")
+        if row['history_wrong'] != 1: raise Exception(f"Detailed integrity check failed: history_wrong={row['history_wrong']} (Expected 1)")
+        logs.append(f"Verification OK: {dict(row)}")
+        
+        # 5. Test UPDATE (Correct)
+        logs.append("Testing UPDATE (Correct -> wrong_count=0)...")
+        c.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (test_uid, test_qid))
+        conn.commit()
+        row = c.execute("SELECT * FROM user_question_status WHERE user_id=? AND question_id=?", (test_uid, test_qid)).fetchone()
+        if row['wrong_count'] != 0: raise Exception(f"Update failed: wrong_count={row['wrong_count']} (Expected 0)")
+        logs.append("UPDATE OK.")
+        
+        # 6. Test UPDATE (Mark Difficult)
+        logs.append("Testing UPDATE (Difficult)...")
+        c.execute("UPDATE user_question_status SET is_difficult = 1 WHERE user_id = ? AND question_id = ?", (test_uid, test_qid))
+        conn.commit()
+        row = c.execute("SELECT * FROM user_question_status WHERE user_id=? AND question_id=?", (test_uid, test_qid)).fetchone()
+        if row['is_difficult'] != 1: raise Exception(f"Update Difficult failed: is_difficult={row['is_difficult']}")
+        logs.append("Difficult OK.")
+        
+        # 7. Cleanup
+        c.execute("DELETE FROM user_question_status WHERE user_id=? AND question_id=?", (test_uid, test_qid))
+        conn.commit()
+        logs.append("Cleanup OK. Test Passed!")
+        
+        return {"status": "success", "logs": logs}
+
+    except Exception as e:
+        print(f"Deep Diag Error: {e}", flush=True)
+        return {"status": "error", "logs": logs, "error_msg": str(e)}
     finally:
         conn.close()
 

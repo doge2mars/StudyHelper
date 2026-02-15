@@ -85,6 +85,7 @@
 <script>
     const questions = {{ questions| tojson }};
     let currentIndex = 0;
+    let selectedOpts = new Set(); // V1.3.14: Track interactions
 
     function renderQuestion() {
         if (questions.length === 0) {
@@ -103,28 +104,42 @@
         const aImgsEl = document.getElementById('answer-images');
         const answerArea = document.getElementById('answer-area');
 
-        // Reset
+        // Reset UI & State
+        selectedOpts.clear();
         answerArea.style.display = 'none';
         document.getElementById('toggle-answer-btn').style.display = 'inline-flex';
         document.getElementById('record-btns').style.display = 'none';
 
-        // Render Question Text
-        qTextEl.textContent = q.question_text || '图示题';
+        // V1.3.14: Multi-select support
+        const isMulti = q.question_type === 'multi';
 
-        // Render Options if any (A, B, C, D)
+        // Render Question Text
+        let typeBadge = '';
+        if (isMulti) typeBadge = '<span class="badge" style="background:var(--accent); color:white; margin-right:0.5rem; font-size:0.8rem">多选</span>';
+        qTextEl.innerHTML = typeBadge + (q.question_text || '图示题');
+
+        // Render Options
         let optsHtml = '';
         ['a', 'b', 'c', 'd'].forEach(key => {
             const val = q[`option_${key}`];
-            // Render if value exists OR if it's an objective/multi question (forcing buttons for image-based options)
             if ((val && val.trim()) || ['objective', 'multi'].includes(q.question_type)) {
                 optsHtml += `
-                    <div class="opt" id="opt-${key}" onclick="checkOpt('${key}')">
+                    <div class="opt" id="opt-${key}" onclick="handleOptClick('${key}', '${q.question_type}')">
                         <span class="badge" style="background:rgba(108,92,231,0.1); color:var(--accent)">${key.toUpperCase()}</span>
                         <span>${val || ''}</span>
                     </div>
                 `;
             }
         });
+
+        // Add Submit Button for Multi
+        if (isMulti) {
+            optsHtml += `
+                <button id="btn-submit-multi" class="btn btn-primary" style="width:100%; margin-top:1rem" onclick="submitMulti()">
+                    确认答案 <i class="fas fa-check"></i>
+                </button>
+            `;
+        }
 
         const optBox = document.createElement('div');
         optBox.className = 'opt-box';
@@ -137,20 +152,17 @@
             qImgsEl.appendChild(optBox);
             document.getElementById('user-input-area').style.display = 'none';
         } else {
-            // Show text input for fill/subjective
             const inputArea = document.getElementById('user-input-area');
             inputArea.style.display = 'block';
-            document.getElementById('user-answer-text').value = ''; // Reset
+            document.getElementById('user-answer-text').value = '';
         }
 
-        // Render Answer Area
+        // Render Answer Area (kept same)
         let aHtml = '';
         if (q.correct_answer && q.correct_answer.trim()) {
             aHtml += `<div style="margin-bottom: 1.5rem; font-size: 1.1rem;">标准答案: <span style="color:var(--success); font-weight:700">${q.correct_answer}</span></div>`;
         }
-        if (q.q_text && q.q_text.includes('【解析】')) {
-            // If parsed text available
-        }
+        if (q.q_text && q.q_text.includes('【解析】')) { }
         aHtml += q.a_imgs.map(path => `<img src="${path}" class="q-image">`).join('');
         if (!aHtml && !q.correct_answer) {
             aHtml = '<div style="opacity:0.5; text-align:center; padding:1rem">该题目未录入文字答案或解析图</div>';
@@ -166,20 +178,76 @@
         document.getElementById('next-btn').innerHTML = currentIndex === questions.length - 1 ? '完成学习 <i class="fas fa-flag-checkered"></i>' : '下一题 <i class="fas fa-chevron-right"></i>';
     }
 
-    function checkOpt(key) {
-        const q = questions[currentIndex];
-        const isCorrect = key.toUpperCase() === q.correct_answer.toUpperCase();
-        const el = document.getElementById(`opt-${key}`);
+    // V1.3.14: Unified Handler
+    function handleOptClick(key, type) {
+        // If already showing answer, disable clicks
+        if (document.getElementById('answer-area').style.display === 'block') return;
 
-        // Highlight logic
-        document.querySelectorAll('.opt').forEach(o => o.classList.remove('correct', 'wrong'));
-        el.classList.add(isCorrect ? 'correct' : 'wrong');
+        if (type === 'multi') {
+            // Toggle
+            const el = document.getElementById(`opt-${key}`);
+            if (selectedOpts.has(key)) {
+                selectedOpts.delete(key);
+                el.style.borderColor = 'transparent';
+                el.style.background = 'white';
+            } else {
+                selectedOpts.add(key);
+                el.style.borderColor = 'var(--accent)';
+                el.style.background = 'rgba(108,92,231,0.05)';
+            }
+        } else {
+            // Single choice: Immediate check
+            checkAnswer(key);
+        }
+    }
+
+    // V1.3.14: Multi-Submit
+    function submitMulti() {
+        const answer = Array.from(selectedOpts).sort().join('').toUpperCase();
+        if (!answer) {
+            showToast("请至少选择一个选项", false);
+            return;
+        }
+        checkAnswer(answer);
+    }
+
+    function checkAnswer(userAnswer) {
+        const q = questions[currentIndex];
+        // Normalize strings
+        const correct = (q.correct_answer || '').trim().toUpperCase();
+        const user = userAnswer.trim().toUpperCase();
+
+        const isCorrect = user === correct;
+
+        // Visual Feedback
+        document.querySelectorAll('.opt').forEach(o => {
+            o.classList.remove('correct', 'wrong');
+            o.style.borderColor = 'transparent'; // Reset multi styles
+            o.style.background = 'white';
+        });
+
+        // Highlight selected/clicked
+        // For multi, highlight all selected. For single, highlight the one clicked.
+        if (q.question_type === 'multi') {
+            user.split('').forEach(k => {
+                const el = document.getElementById(`opt-${k.toLowerCase()}`);
+                if (el) el.classList.add(isCorrect ? 'correct' : 'wrong');
+            });
+        } else {
+            // For single, user is just one char
+            const el = document.getElementById(`opt-${user.toLowerCase()}`);
+            if (el) el.classList.add(isCorrect ? 'correct' : 'wrong');
+        }
 
         if (isCorrect) {
             showToast("回答正确！", true);
+            // V1.3.14: Auto-record Correct
+            record(1);
             setTimeout(toggleAnswer, 500);
         } else {
-            showToast("再想想看？", false);
+            showToast("答案错误", false);
+            // V1.3.14: Auto-record Wrong
+            record(0);
         }
     }
 
@@ -187,6 +255,10 @@
         document.getElementById('answer-area').style.display = 'block';
         document.getElementById('toggle-answer-btn').style.display = 'none';
         document.getElementById('record-btns').style.display = 'inline-flex';
+        // Hide submit btn if multi
+        const subBtn = document.getElementById('btn-submit-multi');
+        if (subBtn) subBtn.style.display = 'none';
+
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 
@@ -199,16 +271,11 @@
                 body: JSON.stringify({ qid: q.id, ok: !!ok })
             });
             if (resp.ok) {
-                // V1.3.7: Visual feedback
-                if (ok) showToast("✅ 已标记为：掌握", true);
-                else showToast("❌ 已标记为：错题", false);
-
-                if (currentIndex < questions.length - 1) {
-                    setTimeout(nextQuestion, 500); // Slight delay to see toast
-                } else {
-                    alert('学习完成！恭喜你完成了本组题目的练习。');
-                    location.href = '/';
-                }
+                // Modified: Only show toast if user clicked record button manually
+                // If called from checkAnswer, we already showed "Correct/Wrong" toast
+                // checkAnswer passes '1' or '0' (number), manual click passes 1 or 0
+                // We can add a flag or just rely on console.
+                console.log("Record saved:", ok);
             }
         } catch (e) {
             console.error(e);

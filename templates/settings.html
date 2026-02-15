@@ -3,21 +3,23 @@
 <div class="glass-card" style="max-width:700px; margin:auto">
     <h2 style="margin-bottom:2rem"><i class="fas fa-sliders-h"></i> 系统控制中心</h2>
 
-    <!-- Section 0: System Diagnosis (V1.3.13) -->
+    <!-- Section 0: System Diagnosis (V1.3.14) -->
     <section id="diagnosis-card" style="margin-bottom:2.5rem">
         <div class="glass-card"
             style="background:rgba(231, 76, 60, 0.05); border:1px solid rgba(231, 76, 60, 0.3); padding:1.2rem">
             <h3 style="color:var(--danger); margin-top:0"><i class="fas fa-heartbeat"></i> 系统诊断与修复 (System Diagnosis)
             </h3>
-            <p style="font-size:0.9rem; color:#636e72">如果不确定数据库是否正常，或者遇到“错题/难点”无法保存的问题，请点击下方按钮进行强制修复。</p>
-            <div style="margin-top:1rem; display:flex; gap:1rem; align-items:center">
+            <p style="font-size:0.9rem; color:#636e72">如果不确定数据库是否正常，或者遇到“错题/难点”无法保存的问题，请点击下方按钮。</p>
+            <div style="margin-top:1rem; display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
                 <button id="btn-fix-db" class="btn btn-danger">
                     <i class="fas fa-tools"></i> 强制修复数据库结构
                 </button>
-                <div id="status-indicator"></div>
+                <button id="btn-deep-test" class="btn" style="background:var(--accent); color:white">
+                    <i class="fas fa-stethoscope"></i> 运行深度自检 (Deep Test)
+                </button>
             </div>
             <div id="fix-logs"
-                style="margin-top:1rem; font-family:monospace; font-size:0.85rem; background:rgba(0,0,0,0.05); padding:0.8rem; border-radius:6px; display:none">
+                style="margin-top:1rem; font-family:monospace; font-size:0.85rem; background:rgba(0,0,0,0.05); padding:0.8rem; border-radius:6px; display:none; white-space: pre-wrap;">
             </div>
         </div>
     </section>
@@ -172,51 +174,65 @@
     }
 
     window.onload = async function () {
-        // V1.3.12 Diagnosis Check
-        try {
-            const res = await fetch('/api/admin/diagnose');
-            if (res.ok) {
-                const data = await res.json();
-                if (data.status === 'error') {
-                    document.getElementById('diagnosis-card').style.display = 'block';
-                }
-            }
-        } catch (e) {
-            console.error("Diagnosis failed:", e);
-        }
+        // V1.3.12 Diagnosis Check (Auto-check suppressed in V1.3.14 to be less annoying, manual only)
+        // try {
+        //     const res = await fetch('/api/admin/diagnose');
+        //     if (res.ok) {
+        //         const data = await res.json();
+        //         if (data.status === 'error') {
+        //             document.getElementById('diagnosis-card').style.display = 'block';
+        //         }
+        //     }
+        // } catch (e) {
+        //     console.error("Diagnosis failed:", e);
+        // }
+
+        const logDiv = document.getElementById('fix-logs');
 
         // Bind Fix Button
         const fixBtn = document.getElementById('btn-fix-db');
         if (fixBtn) {
             fixBtn.onclick = async function () {
                 if (!confirm("确定要强制修复数据库结构吗？")) return;
+                runAction(this, '/api/admin/fix_db');
+            };
+        }
 
-                const btn = this;
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 修复中...';
-                const logDiv = document.getElementById('fix-logs');
-                logDiv.style.display = 'block';
-                logDiv.innerText = "正在请求修复...";
+        // V1.3.14: Bind Deep Test Button
+        const testBtn = document.getElementById('btn-deep-test');
+        if (testBtn) {
+            testBtn.onclick = async function () {
+                runAction(this, '/api/admin/test_record');
+            };
+        }
 
-                try {
-                    const res = await fetch('/api/admin/fix_db', { method: 'POST' });
-                    const data = await res.json();
+        async function runAction(btn, url) {
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+            logDiv.style.display = 'block';
+            logDiv.innerText = "正在请求...";
 
-                    if (res.ok && data.status === 'success') {
-                        logDiv.innerHTML = `<span style="color:var(--success)">✅ 修复成功!</span>\n` + data.logs.join('\n');
-                        btn.innerHTML = '<i class="fas fa-check"></i> 已修复';
-                        btn.className = 'btn btn-primary'; // Change color
-                        setTimeout(() => location.reload(), 3000);
-                    } else {
-                        logDiv.innerHTML = `<span style="color:var(--danger)">❌ 修复失败: ${data.error_msg || 'Unknown'}</span>\n` + (data.logs ? data.logs.join('\n') : '');
-                        btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 重试';
+            try {
+                const res = await fetch(url, { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok && data.status === 'success') {
+                    logDiv.innerHTML = `<span style="color:var(--success)">✅ 成功!</span>\n` + data.logs.join('\n');
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
                         btn.disabled = false;
-                    }
-                } catch (e) {
-                    logDiv.innerHTML = `<span style="color:var(--danger)">网络错误: ${e}</span>`;
+                    }, 2000);
+                } else {
+                    logDiv.innerHTML = `<span style="color:var(--danger)">❌ 失败: ${data.error_msg || 'Unknown'}</span>\n` + (data.logs ? data.logs.join('\n') : '');
+                    btn.innerHTML = originalText;
                     btn.disabled = false;
                 }
-            };
+            } catch (e) {
+                logDiv.innerHTML = `<span style="color:var(--danger)">网络错误: ${e}</span>`;
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
         }
 
         const urlParams = new URLSearchParams(window.location.search);
