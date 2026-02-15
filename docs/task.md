@@ -123,6 +123,10 @@
     - [x] **Verify**: Verified logic with `repro_v138.py`.
     - [x] **Documentation**: Updated `walkthrough.md` and `how_to_update_nas.md`.
 
+- [x] V1.3.24 Hotfix: Robust Schema Migration
+    - [x] **Fix**: Automate `questions` table migration (add `difficulty`, `source`, etc. if missing).
+    - [x] **Version**: Bump version to V1.3.24.
+
 - [x] V1.3.12: System Diagnosis & Database Repair Tool (The "Nuclear Option")
     - [x] **Plan**: Implementation Plan updated.
     - [x] **Backend**: Add `/api/admin/diagnose` and `/api/admin/fix_db` routes.

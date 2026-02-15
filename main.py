@@ -13,7 +13,9 @@ from pdf2image import convert_from_path, pdfinfo_from_path
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
-app = FastAPI(title='Study Helper Pro V1.2.7')
+APP_VERSION = "V1.3.25"
+
+app = FastAPI(title=f'Study Helper Pro {APP_VERSION}', version=APP_VERSION)
 pillow_heif.register_heif_opener()
 
 # Security & Auth
@@ -31,6 +33,7 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 app.mount('/static', StaticFiles(directory='/app/static'), name='static')
 templates = Jinja2Templates(directory='/app/templates')
+templates.env.globals['APP_VERSION'] = APP_VERSION
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
