@@ -721,7 +721,7 @@ async def manage(request: Request, sid: Optional[int] = None):
             d['is_difficult'] = d['user_is_difficult']
         questions.append(d)
         
-    all_users = conn.execute("SELECT id, username, nickname, role FROM users ORDER BY username").fetchall()
+    all_users = conn.execute("SELECT id, username, role FROM users ORDER BY username").fetchall()
     conn.close(); return templates.TemplateResponse("manage.html", {"request": request, "app_name": get_app_name(), "user": user, "questions": questions, "subjects": [dict(s) for s in subs], "current_sid": sid, "all_users": [dict(u) for u in all_users]})
 
 @app.get("/settings", response_class=HTMLResponse)

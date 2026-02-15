@@ -61,12 +61,14 @@
                         <td style="padding: 1rem; text-align: center;">
                             <input type="checkbox" class="q-checkbox" value="{{ q.id }}" onchange="updateToolbar()">
                         </td>
-                        <td style="padding: 1rem; cursor:pointer;"
-                            onclick="window.location.href='/question/{{ q.id }}'">
-                            <div
-                                style="max-height: 60px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 0.9rem;">
-                                {{ q.question_text }}
-                            </div>
+                        <td style="padding: 1rem;">
+                            <a href="/question/{{ q.id }}"
+                                style="color: inherit; text-decoration: none; display: block;">
+                                <div
+                                    style="max-height: 60px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 0.9rem; font-weight: 500;">
+                                    {{ q.question_text }}
+                                </div>
+                            </a>
                             {% if q.source %}
                             <div style="font-size: 0.7rem; opacity: 0.5; margin-top: 0.3rem;">来源: {{ q.source }}</div>
                             {% endif %}
