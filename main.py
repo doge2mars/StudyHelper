@@ -695,7 +695,8 @@ async def manage(request: Request, sid: Optional[int] = None):
     if not user: return RedirectResponse("/login", status_code=303)
     conn = get_db(); subs = conn.execute("SELECT * FROM subjects WHERE user_id = ? ORDER BY name", (user['id'],)).fetchall()
     q_str = '''
-        SELECT q.*, s.name as s_name, uqs.is_difficult 
+        SELECT q.*, s.name as s_name, 
+               uqs.is_difficult as user_is_difficult 
         FROM questions q 
         JOIN subjects s ON q.subject_id = s.id 
         LEFT JOIN user_question_status uqs ON q.id = uqs.question_id AND uqs.user_id = ? 
@@ -704,7 +705,16 @@ async def manage(request: Request, sid: Optional[int] = None):
     params = [user['id'], user['id']]
     if sid: q_str += " AND q.subject_id = ?"; params.append(sid)
     qs = conn.execute(q_str + " ORDER BY q.created_at DESC", params).fetchall()
-    conn.close(); return templates.TemplateResponse("manage.html", {"request": request, "app_name": get_app_name(), "user": user, "questions": [dict(q) for q in qs], "subjects": [dict(s) for s in subs], "current_sid": sid})
+    
+    # Process to overwrite legacy is_difficult
+    questions = []
+    for r in qs:
+        d = dict(r)
+        if d['user_is_difficult'] is not None:
+            d['is_difficult'] = d['user_is_difficult']
+        questions.append(d)
+        
+    conn.close(); return templates.TemplateResponse("manage.html", {"request": request, "app_name": get_app_name(), "user": user, "questions": questions, "subjects": [dict(s) for s in subs], "current_sid": sid})
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):

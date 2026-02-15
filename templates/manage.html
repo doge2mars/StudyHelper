@@ -56,6 +56,11 @@
                             <span class="badge" style="background: rgba(0,0,0,0.05); font-size: 0.75rem;">
                                 {{ '选择题' if q.question_type == 'select' else '非选择题' }}
                             </span>
+                            {# V1.3.19: Show Difficult Status in Manage #}
+                            {% if q.is_difficult %}
+                            <span class="badge"
+                                style="background:rgba(214, 48, 49, 0.1); color:var(--danger); font-size:0.7rem; margin-left:0.3rem">难</span>
+                            {% endif %}
                         </td>
                         <td style="padding: 1rem; text-align: center;">
                             <span class="badge"
