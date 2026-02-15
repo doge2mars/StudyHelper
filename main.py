@@ -251,9 +251,9 @@ async def index(request: Request):
         WHERE q.user_id = ? OR pa.user_id = ?
     ''', (user['id'], user['id'], user['id'])).fetchone()[0]
     
-    today_q = c.execute("SELECT COUNT(*) FROM study_records WHERE user_id = ? AND date(studied_at) = date('now')", (user['id'],)).fetchone()[0]
+    today_q = c.execute("SELECT COUNT(*) FROM study_records WHERE user_id = ? AND date(studied_at) = date('now', 'localtime')", (user['id'],)).fetchone()[0]
     recs = c.execute("SELECT COUNT(*) as total, SUM(CASE WHEN is_correct=1 THEN 1 ELSE 0 END) as ok FROM study_records WHERE user_id = ?", (user['id'],)).fetchone()
-    acc = round(recs['ok'] / recs['total'] * 100, 1) if recs['total'] > 0 else 0
+    acc = round(recs['ok'] / recs['total'] * 100, 1) if recs['total'] and recs['total'] > 0 else 0
     
     # Subjects list: owned subjects OR subjects containing assigned papers
     subs = c.execute('''
@@ -732,26 +732,33 @@ async def record(request: Request):
     if not user: return JSONResponse({"error": "Unauthorized"}, status_code=401)
     data = await request.json(); qid, ok = data['qid'], data['ok']; conn = get_db(); cur = conn.cursor()
     
-    # Check permission: exist? (Relaxed for students to record any visible question)
-    # Ideally should check access, but for now simple existence is enough to fix the bug
+    # Check permission (simple existence check)
     allowed = cur.execute("SELECT 1 FROM questions WHERE id = ?", (qid,)).fetchone()
-    
     if not allowed: conn.close(); return JSONResponse({"error": "Question not found"}, status_code=404)
     
-    # Update per-user status
-    # V1.3.7: Use INSERT OR IGNORE to ensure row exists, then UPDATE.
-    cur.execute("INSERT OR IGNORE INTO user_question_status (user_id, question_id) VALUES (?, ?)", (user['id'], qid))
+    # Check if status record exists
+    status_row = cur.execute("SELECT wrong_count, is_difficult FROM user_question_status WHERE user_id = ? AND question_id = ?", (user['id'], qid)).fetchone()
     
-    if ok:
-        # User Correct: Clear Active Error (wrong_count -> 0), Keep History (history_wrong).
-        cur.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+    if not status_row:
+        # Create new record
+        wc = 0 if ok else 1
+        hw = 0 if ok else 1
+        is_diff = 0
+        cur.execute("INSERT INTO user_question_status (user_id, question_id, wrong_count, history_wrong, is_difficult) VALUES (?, ?, ?, ?, ?)", (user['id'], qid, wc, hw, is_diff))
     else:
-        # User Wrong: Increment wrong_count, Set history_wrong = 1.
-        cur.execute("UPDATE user_question_status SET wrong_count = wrong_count + 1, history_wrong = 1 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
-        # Auto-mark difficult if wrong >= 2 times (Active count)
-        cur.execute("UPDATE user_question_status SET is_difficult = 1 WHERE user_id = ? AND question_id = ? AND wrong_count >= 2", (user['id'], qid))
+        # Update existing
+        if ok:
+            # CORRECT: Clear active wrong_count, keep history and difficulty (manual clear only for difficult)
+            cur.execute("UPDATE user_question_status SET wrong_count = 0 WHERE user_id = ? AND question_id = ?", (user['id'], qid))
+        else:
+            # WRONG: Increment wrong_count, set history_wrong
+            new_wc = status_row['wrong_count'] + 1
+            # Auto-mark difficult if wrong >= 2 times (Active count)
+            new_diff = 1 if new_wc >= 2 else status_row['is_difficult']
+            cur.execute("UPDATE user_question_status SET wrong_count = ?, history_wrong = 1, is_difficult = ? WHERE user_id = ? AND question_id = ?", (new_wc, new_diff, user['id'], qid))
     
-    cur.execute("INSERT INTO study_records (user_id, question_id, is_correct) VALUES (?,?,?)", (user['id'], qid, ok))
+    # Record study log with LOCAL TIME
+    cur.execute("INSERT INTO study_records (user_id, question_id, is_correct, studied_at) VALUES (?,?,?, datetime('now', 'localtime'))", (user['id'], qid, ok))
     conn.commit(); conn.close(); return {"status": "ok"}
 
 @app.post("/api/delete/{qid}")

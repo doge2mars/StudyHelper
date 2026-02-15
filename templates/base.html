@@ -260,8 +260,9 @@
             {% if user and user.role == 'admin' %}
             <a href="/admin/users" style="color: var(--accent);"><i class="fas fa-users-cog"></i> 管理员</a>
             {% endif %}
-            <a href="/settings"><i class="fas fa-cog"></i></a>
-
+            <a href="/settings" style="text-decoration:none; color:inherit">
+                <i class="fas fa-cog"></i> V1.3.10
+            </a>
             {% if user %}
             <div
                 style="display: flex; align-items: center; gap: 0.8rem; border-left: 1px solid rgba(0,0,0,0.1); padding-left: 1.2rem; margin-left: 0.5rem;">
