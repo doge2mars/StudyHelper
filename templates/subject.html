@@ -71,19 +71,20 @@
                     {% endif %}
                 </td>
                 <td style="padding: 1.2rem; text-align: center;">
-                    {# V1.3.16: Sync with Paper Center Logic Verbatim #}
+                    {# V1.3.17: Strict Sync with Paper Detail (0.7rem, no '次') #}
                     {% if q.wrong_count > 0 %}
-                    <span class="badge" style="background:var(--danger); color:white; font-size:0.75rem;">错 {{
+                    <span class="badge" style="background:var(--danger); color:white; font-size:0.7rem;">错 {{
                         q.wrong_count
-                        }} 次</span>
+                        }}</span>
                     {% elif q.history_wrong == 1 %}
-                    <span class="badge" style="background:var(--warning); color:white; font-size:0.75rem;">曾错</span>
+                    <span class="badge" style="background:var(--warning); color:white; font-size:0.7rem;">曾错</span>
                     {% elif q.has_record %}
-                    <span class="badge" style="background:var(--success); color:white; font-size:0.75rem;">已掌握</span>
+                    <span class="badge" style="background:var(--success); color:white; font-size:0.7rem;">已掌握</span>
                     {% endif %}
 
                     {% if q.is_difficult %}
-                    <span class="badge" style="background:rgba(214, 48, 49, 0.1); color:var(--danger);">⭐ 困难</span>
+                    <span class="badge"
+                        style="background:rgba(214, 48, 49, 0.1); color:var(--danger); font-size:0.7rem;">难点</span>
                     {% endif %}
                 </td>
                 <td style="padding: 1.2rem; text-align: center;">
