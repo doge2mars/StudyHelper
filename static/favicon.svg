@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+    <g transform="translate(0, 10)"> <!-- slight shift down to make room for tassel -->
+        <!-- Book Base -->
+        <!-- Right page -->
+        <path d="M 100 135 C 130 120 160 130 170 140 L 170 165 C 160 155 130 145 100 160 Z" fill="#58CC02"/>
+        <path d="M 170 140 L 170 165 C 160 155 130 145 100 160 V 135 C 130 120 160 130 170 140 Z" fill="#4CB802"/>
+        
+        <!-- Left page -->
+        <path d="M 100 135 C 70 120 40 130 30 140 L 30 165 C 40 155 70 145 100 160 Z" fill="#75D92A"/>
+        <path d="M 30 140 L 30 165 C 40 155 70 145 100 160 V 135 C 70 120 40 130 30 140 Z" fill="#58CC02"/>
+        
+        <!-- Brain -->
+        <!-- Back lobes -->
+        <circle cx="65" cy="85" r="30" fill="#1899D6"/>
+        <circle cx="135" cy="85" r="30" fill="#1899D6"/>
+        <!-- Front lobes -->
+        <circle cx="80" cy="115" r="35" fill="#1CB0F6"/>
+        <circle cx="120" cy="115" r="35" fill="#1CB0F6"/>
+        <circle cx="100" cy="75" r="40" fill="#1CB0F6"/>
+        <!-- Cortex details (white lines) -->
+        <path d="M 100 50 V 130 M 75 110 Q 90 95 100 105 M 125 110 Q 110 95 100 105 M 70 80 Q 90 70 100 90 M 130 80 Q 110 70 100 90" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="6" stroke-linecap="round" fill="none"/>
+
+        <!-- Graduation Cap -->
+        <!-- Base curve matching the brain -->
+        <path d="M 65 45 Q 100 65 135 45 L 125 65 Q 100 80 75 65 Z" fill="#3B4043"/>
+        <!-- Bottom box -->
+        <path d="M 100 5 L 30 35 L 100 65 L 170 35 Z" fill="#5C636A"/>
+        <path d="M 100 5 L 30 35 L 100 65 Z" fill="#4B5155"/>
+        
+        <!-- Cap Button -->
+        <circle cx="100" cy="35" r="6" fill="#FF4B4B"/>
+        <!-- Tassel -->
+        <path d="M 100 35 Q 135 45 150 85" stroke="#FF4B4B" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <path d="M 145 85 L 155 85 L 150 100 Z" fill="#FF4B4B"/>
+    </g>
+</svg>

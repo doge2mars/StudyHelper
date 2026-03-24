@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="glass-card" style="max-width: 800px; margin: 0 auto; padding: 2.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 style="margin: 0;"><i class="fas fa-edit"></i> 编辑题目 - {{ subject.name }}</h2>
+        <button onclick="history.length > 1 ? history.back() : window.location.href='/manage'" class="btn"
+            style="background: var(--card);"><i class="fas fa-arrow-left"></i> 返回上一级</button>
+    </div>
+
+    <form action="/question/{{ q.id }}/edit" method="POST" enctype="multipart/form-data" id="add-form">
+        <div class="form-group" style="display: flex; justify-content: flex-end; margin-bottom: 1rem;">
+            <label
+                style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; background: rgba(214, 48, 49, 0.05); padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid rgba(214, 48, 49, 0.2);">
+                <input type="checkbox" name="is_difficult" {% if q.is_difficult %}checked{% endif %}
+                    style="width: auto; margin: 0;">
+                <span style="color:var(--danger); font-size:0.9rem; font-weight: bold;">标记为难点/错题</span>
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label>题目文本 (可选)</label>
+            <textarea name="q_text" rows="4" placeholder="在此输入题目文字描述...">{{ q.question_text }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>所属知识板块/标签 (可选, 逗号分隔)</label>
+            <input type="text" name="tags" placeholder="例: 几何, 函数, 必考题"
+                value="{{ q.tags|join(', ') if q.tags else '' }}">
+            <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.6;">知识板块将用于分类题目并展示在侧边栏。输入多个请用英文或中文逗号隔开。</div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+            <div class="form-group">
+                <label>题目类型</label>
+                <select name="q_type" id="q_type" onchange="toggleOptions()">
+                    <option value="objective" {% if q.question_type=='objective' %}selected{% endif %}>单选题</option>
+                    <option value="multi" {% if q.question_type=='multi' %}selected{% endif %}>多选题</option>
+                    <option value="fill" {% if q.question_type=='fill' %}selected{% endif %}>填空题</option>
+                    <option value="subjective" {% if q.question_type=='subjective' %}selected{% endif %}>主观题/解答题
+                    </option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>标准答案</label>
+                <input type="text" name="ans" placeholder="例: A 或 ABCD" value="{{ q.correct_answer }}">
+            </div>
+        </div>
+
+        <!-- Options Section -->
+        <div id="options-section"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; background: rgba(0,0,0,0.02); padding: 1.5rem; border-radius: 15px;">
+            <div class="form-group" style="margin:0">
+                <label>选项 A</label>
+                <input type="text" name="a" value="{{ q.option_a or '' }}">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>选项 B</label>
+                <input type="text" name="b" value="{{ q.option_b or '' }}">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>选项 C</label>
+                <input type="text" name="c" value="{{ q.option_c or '' }}">
+            </div>
+            <div class="form-group" style="margin:0">
+                <label>选项 D</label>
+                <input type="text" name="d" value="{{ q.option_d or '' }}">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>解析文本 (可选)</label>
+            <textarea name="analysis" rows="3" placeholder="在此输入题目解析及讲解过程...">{{ q.analysis or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label>题目图片</label>
+            {% if q.q_images %}
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                {% for img in q.q_images %}
+                <div style="position: relative; display: inline-block;" id="media-{{ img.id }}">
+                    <img src="/static/uploads/{{ img.path }}"
+                        style="height: 100px; border-radius: 5px; border: 1px solid #ddd; object-fit: contain; cursor: pointer;"
+                        onclick="window.open('/static/uploads/{{ img.path }}', '_blank')">
+                    <button type="button" onclick="deleteMedia({{ img.id }})"
+                        style="position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; z-index: 1;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <input type="file" name="q_files" multiple accept="image/*">
+            <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.6;">选择要追加上传的新图片 (可选)。</div>
+        </div>
+
+        <div class="form-group">
+            <label>解答/解析图片</label>
+            {% if q.a_images %}
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+                {% for img in q.a_images %}
+                <div style="position: relative; display: inline-block;" id="media-{{ img.id }}">
+                    <img src="/static/uploads/{{ img.path }}"
+                        style="height: 100px; border-radius: 5px; border: 1px solid #ddd; object-fit: contain; cursor: pointer;"
+                        onclick="window.open('/static/uploads/{{ img.path }}', '_blank')">
+                    <button type="button" onclick="deleteMedia({{ img.id }})"
+                        style="position: absolute; top: -5px; right: -5px; background: var(--danger); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; z-index: 1;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            <input type="file" name="a_files" multiple accept="image/*">
+            <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.6;">选择要追加上传的新图片 (可选)。</div>
+        </div>
+
+        <div class="form-group">
+            <label>视频讲解 (可选)</label>
+            {% if q.answer_video %}
+            <div id="video-container-{{ q.id }}"
+                style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.02); border-radius: 5px;">
+                <span style="color: var(--primary);"><i class="fas fa-video"></i> 已包含视频讲解</span>
+                <button type="button" onclick="deleteVideo({{ q.id }})" class="btn"
+                    style="padding: 0.2rem 0.5rem; font-size: 0.8rem; background: rgba(214, 48, 49, 0.1); color: var(--danger); border: none; cursor: pointer;">
+                    移除视频
+                </button>
+            </div>
+            {% endif %}
+            <input type="file" name="v_file" accept="video/mp4,video/webm">
+            <div style="font-size: 0.8rem; margin-top: 5px; opacity: 0.6;">上传新视频会覆盖原有视频 (仅限 mp4, webm 格式, 大小限制: 30MB)
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>来源备注 (可选)</label>
+            <input type="text" name="source" placeholder="例: 2023年期末考试第5题" value="{{ q.source or '' }}">
+        </div>
+
+        <div class="form-group">
+            <label>适用年级 (可选)</label>
+            <select name="grade" id="grade-select" style="background: rgba(255,255,255,0.8);">
+                <option value="" {% if not request.cookies.get('active_grade') %}selected{% endif %}>🌍 默认无年级</option>
+                <option value="一年级上" {% if unquote(request.cookies.get('active_grade', '' ))=='一年级上' %}selected{% endif
+                    %}>🎒 一年级上</option>
+                <option value="一年级下" {% if unquote(request.cookies.get('active_grade', '' ))=='一年级下' %}selected{% endif
+                    %}>🎒 一年级下</option>
+                <option value="二年级上" {% if unquote(request.cookies.get('active_grade', '' ))=='二年级上' %}selected{% endif
+                    %}>🎒 二年级上</option>
+                <option value="二年级下" {% if unquote(request.cookies.get('active_grade', '' ))=='二年级下' %}selected{% endif
+                    %}>🎒 二年级下</option>
+                <option value="三年级上" {% if unquote(request.cookies.get('active_grade', '' ))=='三年级上' %}selected{% endif
+                    %}>🎒 三年级上</option>
+                <option value="三年级下" {% if unquote(request.cookies.get('active_grade', '' ))=='三年级下' %}selected{% endif
+                    %}>🎒 三年级下</option>
+                <option value="四年级上" {% if unquote(request.cookies.get('active_grade', '' ))=='四年级上' %}selected{% endif
+                    %}>🎒 四年级上</option>
+                <option value="四年级下" {% if unquote(request.cookies.get('active_grade', '' ))=='四年级下' %}selected{% endif
+                    %}>🎒 四年级下</option>
+                <option value="五年级上" {% if unquote(request.cookies.get('active_grade', '' ))=='五年级上' %}selected{% endif
+                    %}>🎒 五年级上</option>
+                <option value="五年级下" {% if unquote(request.cookies.get('active_grade', '' ))=='五年级下' %}selected{% endif
+                    %}>🎒 五年级下</option>
+                <option value="六年级上" {% if unquote(request.cookies.get('active_grade', '' ))=='六年级上' %}selected{% endif
+                    %}>🎒 六年级上</option>
+                <option value="六年级下" {% if unquote(request.cookies.get('active_grade', '' ))=='六年级下' %}selected{% endif
+                    %}>🎒 六年级下</option>
+                <option value="初一上" {% if unquote(request.cookies.get('active_grade', '' ))=='初一上' %}selected{% endif
+                    %}>📚 初一上</option>
+                <option value="初一下" {% if unquote(request.cookies.get('active_grade', '' ))=='初一下' %}selected{% endif
+                    %}>📚 初一下</option>
+                <option value="初二上" {% if unquote(request.cookies.get('active_grade', '' ))=='初二上' %}selected{% endif
+                    %}>📚 初二上</option>
+                <option value="初二下" {% if unquote(request.cookies.get('active_grade', '' ))=='初二下' %}selected{% endif
+                    %}>📚 初二下</option>
+                <option value="初三上" {% if unquote(request.cookies.get('active_grade', '' ))=='初三上' %}selected{% endif
+                    %}>🔥 初三上</option>
+                <option value="初三下" {% if unquote(request.cookies.get('active_grade', '' ))=='初三下' %}selected{% endif
+                    %}>🔥 初三下</option>
+                <option value="高一上" {% if unquote(request.cookies.get('active_grade', '' ))=='高一上' %}selected{% endif
+                    %}>📘 高一上</option>
+                <option value="高一下" {% if unquote(request.cookies.get('active_grade', '' ))=='高一下' %}selected{% endif
+                    %}>📘 高一下</option>
+                <option value="高二上" {% if unquote(request.cookies.get('active_grade', '' ))=='高二上' %}selected{% endif
+                    %}>📘 高二上</option>
+                <option value="高二下" {% if unquote(request.cookies.get('active_grade', '' ))=='高二下' %}selected{% endif
+                    %}>📘 高二下</option>
+                <option value="高三上" {% if unquote(request.cookies.get('active_grade', '' ))=='高三上' %}selected{% endif
+                    %}>🚀 高三上</option>
+                <option value="高三下" {% if unquote(request.cookies.get('active_grade', '' ))=='高三下' %}selected{% endif
+                    %}>🚀 高三下</option>
+            </select>
+        </div>
+
+        <input type="hidden" name="paper_id"
+            value="{{ request.query_params.get('paper_id') or request.query_params.get('pid', '') }}">
+
+        <div style="margin-top: 2rem;">
+            <button type="submit" class="btn btn-primary"
+                style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem;">
+                <i class="fas fa-save"></i> 确认保存修改
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Custom Confirm Modal -->
+<div id="delete-confirm-modal"
+    style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div
+        style="background: #2D2D2D; border-radius: 16px; padding: 32px 24px; width: 90%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.4); text-align: center; animation: modal-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+        <div
+            style="width: 56px; height: 56px; border-radius: 50%; background: rgba(231, 76, 60, 0.15); color: #e74c3c; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 20px;">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h3 style="margin: 0 0 12px; font-size: 1.25rem; color: #f5f6fa; font-weight: 600; letter-spacing: 0.5px;">确认删除？
+        </h3>
+        <p style="margin: 0 0 32px; font-size: 0.95rem; color: #a4b0be; line-height: 1.5;">此操作不可恢复，文件将从服务器永久移除。</p>
+        <div style="display: flex; gap: 16px; justify-content: center;">
+            <button onclick="closeDeleteModal()"
+                style="flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #4b4b4b; background: transparent; color: #dcdde1; cursor: pointer; font-weight: 500; font-size: 1rem; transition: all 0.2s;"
+                onmouseover="this.style.background='#3d3d3d'; this.style.borderColor='#5e5e5e';"
+                onmouseout="this.style.background='transparent'; this.style.borderColor='#4b4b4b';">取消</button>
+            <button id="confirm-delete-btn"
+                style="flex: 1; padding: 12px; border-radius: 10px; border: none; background: #c0392b; color: white; cursor: pointer; font-weight: 500; font-size: 1rem; box-shadow: 0 4px 15px rgba(192, 57, 43, 0.3); transition: all 0.2s;"
+                onmouseover="this.style.background='#a5281b'; this.style.transform='translateY(-1px)';"
+                onmouseout="this.style.background='#c0392b'; this.style.transform='none';">确定删除</button>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast-notification"
+    style="display: none; position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%); z-index: 2000; min-width: 260px; max-width: 90vw;">
+    <div id="toast-inner"
+        style="display: flex; align-items: center; gap: 12px; background: #2D2D2D; border-radius: 12px; padding: 14px 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.5); border: 1px solid #3d3d3d; animation: toast-in 0.3s ease;">
+        <span id="toast-icon" style="font-size: 1.2rem;"></span>
+        <span id="toast-msg" style="color: #f5f6fa; font-size: 0.95rem; font-weight: 500;"></span>
+    </div>
+</div>
+<style>
+    @keyframes modal-pop {
+        from {
+            transform: scale(0.9);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    @keyframes toast-in {
+        from {
+            transform: translateY(16px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+</style>
+
+<script>
+    document.getElementById('add-form').addEventListener('submit', function (e) {
+        const pidInput = document.querySelector('input[name="paper_id"]');
+        if (pidInput && !pidInput.value) {
+            pidInput.removeAttribute('name');
+        }
+    });
+
+    function toggleOptions() {
+        const type = document.getElementById('q_type').value;
+        const section = document.getElementById('options-section');
+        section.style.display = (type === 'objective' || type === 'multi') ? 'grid' : 'none';
+    }
+    toggleOptions();
+
+    const qGrade = "{{ q.grade or '' }}";
+    if (qGrade) {
+        const gradeSelect = document.getElementById('grade-select');
+        if (gradeSelect) gradeSelect.value = qGrade;
+    }
+
+    // Toast Notification
+    let toastTimer = null;
+    function showToast(msg, type = 'error') {
+        const toast = document.getElementById('toast-notification');
+        const icon = document.getElementById('toast-icon');
+        const msgEl = document.getElementById('toast-msg');
+        if (type === 'error') {
+            icon.innerHTML = '<i class="fas fa-times-circle" style="color:#e74c3c;"></i>';
+        } else if (type === 'success') {
+            icon.innerHTML = '<i class="fas fa-check-circle" style="color:#2ecc71;"></i>';
+        } else {
+            icon.innerHTML = '<i class="fas fa-info-circle" style="color:#3498db;"></i>';
+        }
+        msgEl.textContent = msg;
+        toast.style.display = 'block';
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+    }
+
+    // Modal Logic
+    let deleteActionCallback = null;
+    const modal = document.getElementById('delete-confirm-modal');
+
+    function showDeleteModal(onConfirm) {
+        deleteActionCallback = onConfirm;
+        modal.style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+        modal.style.display = 'none';
+        deleteActionCallback = null;
+    }
+
+    document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+        if (deleteActionCallback) {
+            await deleteActionCallback();
+        }
+        closeDeleteModal();
+    });
+
+    async function deleteMedia(mediaId) {
+        showDeleteModal(async () => {
+            try {
+                const res = await fetch(`/api/delete-media/${mediaId}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    const el = document.getElementById(`media-${mediaId}`);
+                    if (el) el.remove();
+                    showToast('图片已成功删除', 'success');
+                } else {
+                    showToast('删除失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('网络错误，请重试', 'error');
+            }
+        });
+    }
+
+    async function deleteVideo(qid) {
+        showDeleteModal(async () => {
+            try {
+                const res = await fetch(`/api/delete-video/${qid}`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    const el = document.getElementById(`video-container-${qid}`);
+                    if (el) el.remove();
+                    showToast('视频已成功移除', 'success');
+                } else {
+                    showToast('移除失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('网络错误，请重试', 'error');
+            }
+        });
+    }
+</script>
+{% endblock %}

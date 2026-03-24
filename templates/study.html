@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="study-container"
+    style="max-width: 1200px; margin-left: 0; padding-bottom: 4rem; display: grid; grid-template-columns: 150px 1fr; gap: 1rem; align-items: start;">
+    <!-- Left Sidebar: Return Button -->
+    <aside style="position: sticky; top: 2rem; height: fit-content;">
+        <button class="btn"
+            style="background:var(--card); font-size: 0.9rem; padding: 0.5rem 1rem; width: 100%; justify-content: flex-start; white-space: nowrap;"
+            onclick="history.back()">
+            <i class="fas fa-arrow-left"></i> 返回上一级
+        </button>
+    </aside>
+
+    <!-- Right Content: Practice Area -->
+    <main>
+        <div class="glass-card"
+            style="padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-radius: 20px;">
+            <div>
+                <h2 style="margin: 0; font-size: 1.2rem; color: var(--text);">
+                    <i class="fas {% if is_paper %}fa-graduation-cap{% else %}fa-book-open{% endif %}"
+                        style="color: var(--primary);"></i>
+                    {{ subject.name }}
+                </h2>
+                <div style="font-size: 0.85rem; color: #a1aab2; margin-top: 0.4rem; font-weight: 600;">
+                    模式: {{ '模拟考试' if is_paper else '常规刷题' }}
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div id="progress-text" style="font-weight: 800; color: var(--primary); font-size: 1.1rem;">1 / {{
+                    questions|length }}</div>
+                <div
+                    style="width: 180px; height: 12px; background: rgba(0,0,0,0.06); border-radius: 6px; margin-top: 0.6rem; position: relative; overflow: hidden;">
+                    <div id="progress-bar"
+                        style="width: 0%; height: 100%; background: var(--primary); transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 6px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Display Area -->
+        <div id="question-card" class="glass-card"
+            style="padding: 3rem; min-height: 450px; display: flex; flex-direction: column; gap: 2rem; border-radius: 24px; box-shadow: 0 15px 40px rgba(0,0,0,0.08);">
+            <div id="question-text" style="font-size: 1.3rem; font-weight: 600; line-height: 1.6; color: var(--text);">
+                <!-- Text injected via JS -->
+            </div>
+
+            <div id="question-images" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Images injected via JS -->
+            </div>
+
+            <!-- User Input Area for Fill/Subjective -->
+            <div id="user-input-area" style="display:none; margin-top:1.5rem">
+                <label
+                    style="font-weight:600; font-size:0.9rem; color:var(--accent); display:block; margin-bottom:0.5rem">
+                    <i class="fas fa-pen"></i> 请在此作答
+                </label>
+                <textarea id="user-answer-text" rows="4" placeholder="在此输入你的答案..."
+                    style="width:100%; border:2px solid rgba(0,0,0,0.1); padding:1rem; border-radius:12px; font-size:1rem; resize:vertical"></textarea>
+            </div>
+
+            <div id="answer-area"
+                style="display: none; border-top: 1px dashed rgba(0,0,0,0.1); padding-top: 2rem; margin-top: 1rem;">
+                <div style="font-weight: 600; color: var(--success); margin-bottom: 1rem;">
+                    <i class="fas fa-check-circle"></i> 参考解析
+                </div>
+                <div id="answer-images" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Answer images injected via JS -->
+                </div>
+
+                <div id="video-area"
+                    style="display: none; margin-top: 1.5rem; background: rgba(0,0,0,0.03); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05);">
+                    <div
+                        style="font-weight: 600; font-size: 0.9rem; color: var(--accent); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <i class="fas fa-play-circle" style="font-size: 1.2rem;"></i> 视频讲解 / Video Analysis
+                    </div>
+                    <div id="video-container"
+                        style="width: 100%; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                        <!-- Video player/iframe injected via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div style="margin-top: 2.5rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+            <button id="prev-btn" class="btn"
+                style="flex: 1; justify-content: center; font-size: 1.1rem; padding: 1rem;" onclick="prevQuestion()"
+                disabled>
+                <i class="fas fa-chevron-left"></i> 上一题
+            </button>
+
+            <div style="flex: 2; display: flex; justify-content: center;">
+                <button id="toggle-answer-btn" class="btn btn-secondary"
+                    style="width: 100%; justify-content: center; font-size: 1.1rem; padding: 1rem;"
+                    onclick="toggleAnswer()">
+                    <i class="fas fa-eye"></i> 查看答案
+                </button>
+                <div id="record-btns" style="display: none; gap: 1rem; width: 100%;">
+                    <button class="btn"
+                        style="flex: 1; background: var(--success); color: white; justify-content: center; font-size: 1.1rem; padding: 1rem; box-shadow: 0 4px 0 #58a700;"
+                        onclick="record(1)">
+                        <i class="fas fa-check"></i> 做对了
+                    </button>
+                    <button class="btn"
+                        style="flex: 1; background: var(--danger); color: white; justify-content: center; font-size: 1.1rem; padding: 1rem; box-shadow: 0 4px 0 #ea2b2b;"
+                        onclick="record(0)">
+                        <i class="fas fa-times"></i> 做错了
+                    </button>
+                </div>
+            </div>
+
+            <button id="next-btn" class="btn btn-primary"
+                style="flex: 1; justify-content: center; font-size: 1.1rem; padding: 1rem;" onclick="nextQuestion()">
+                下一题 <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </main>
+</div>
+<style>
+    /* V1.3.22: Fix Image Scaling */
+    #question-images img,
+    #answer-images img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+</style>
+
+<script>
+    const questions = {{ questions| tojson }};
+    let currentIndex = 0;
+    let selectedOpts = new Set(); // V1.3.14: Track interactions
+
+    function renderQuestion() {
+        if (questions.length === 0) {
+            document.getElementById('question-card').innerHTML = `
+                <div style="text-align: center; padding: 5rem; opacity: 0.5;">
+                    <i class="fas fa-ghost" style="font-size: 4rem; display: block; margin-bottom: 1rem;"></i>
+                    题库是空的，快去添加一些题目吧！
+                </div>
+            `;
+            return;
+        }
+
+        const q = questions[currentIndex];
+        const qTextEl = document.getElementById('question-text');
+        const qImgsEl = document.getElementById('question-images');
+        const aImgsEl = document.getElementById('answer-images');
+        const answerArea = document.getElementById('answer-area');
+
+        // Reset UI & State
+        selectedOpts.clear();
+        answerArea.style.display = 'none';
+        document.getElementById('toggle-answer-btn').style.display = 'inline-flex';
+        document.getElementById('record-btns').style.display = 'none';
+
+        // V1.3.14: Multi-select support
+        const isMulti = q.question_type === 'multi';
+
+        // Render Question Text
+        let typeBadge = '';
+        if (isMulti) typeBadge = '<span class="badge" style="background:var(--accent); color:white; margin-right:0.5rem; font-size:0.8rem">多选</span>';
+        qTextEl.innerHTML = typeBadge + (q.question_text || '图示题');
+
+        // Render Options
+        let optsHtml = '';
+        ['a', 'b', 'c', 'd'].forEach(key => {
+            const val = q[`option_${key}`];
+            if ((val && val.trim()) || ['objective', 'multi'].includes(q.question_type)) {
+                optsHtml += `
+                    <div class="opt" id="opt-${key}" onclick="handleOptClick('${key}', '${q.question_type}')">
+                        <span class="badge" style="background:rgba(108,92,231,0.1); color:var(--accent)">${key.toUpperCase()}</span>
+                        <span>${val || ''}</span>
+                    </div>
+                `;
+            }
+        });
+
+        // Add Submit Button for Multi
+        if (isMulti) {
+            optsHtml += `
+                <button id="btn-submit-multi" class="btn btn-primary" style="width:100%; margin-top:1rem" onclick="submitMulti()">
+                    确认答案 <i class="fas fa-check"></i>
+                </button>
+            `;
+        }
+
+        const optBox = document.createElement('div');
+        optBox.className = 'opt-box';
+        optBox.id = 'opt-box';
+        optBox.innerHTML = optsHtml;
+
+        // Render Question Images
+        qImgsEl.innerHTML = q.q_imgs.map(path => `<img src="${path}" class="q-image">`).join('');
+        if (optsHtml) {
+            qImgsEl.appendChild(optBox);
+            document.getElementById('user-input-area').style.display = 'none';
+        } else {
+            const inputArea = document.getElementById('user-input-area');
+            inputArea.style.display = 'block';
+            document.getElementById('user-answer-text').value = '';
+        }
+
+        // Render Answer Area
+        let aHtml = '';
+        if (q.correct_answer && q.correct_answer.trim()) {
+            aHtml += `<div style="margin-bottom: 1.5rem; font-size: 1.1rem;">标准答案: <span style="color:var(--success); font-weight:700">${q.correct_answer}</span></div>`;
+        }
+
+        if (q.analysis && q.analysis.trim()) {
+            aHtml += `<div style="margin-bottom: 1.5rem; font-size: 1rem; line-height: 1.6; padding: 1rem; background: rgba(0,0,0,0.03); border-radius: 8px; border-left: 4px solid var(--accent); white-space: pre-wrap; font-family: inherit;"><b>【解析】</b>\n${q.analysis}</div>`;
+        }
+
+        if (q.q_text && q.q_text.includes('【解析】')) { }
+        aHtml += q.a_imgs.map(path => `<img src="${path}" class="q-image">`).join('');
+        if (!aHtml && !q.correct_answer) {
+            aHtml = '<div style="opacity:0.5; text-align:center; padding:1rem">该题目未录入文字答案或解析图</div>';
+        }
+        aImgsEl.innerHTML = aHtml;
+
+        // V1.4.0: Video Player Logic
+        const videoArea = document.getElementById('video-area');
+        const videoContainer = document.getElementById('video-container');
+
+        if (q.video_url) {
+            videoArea.style.display = 'block';
+            if (q.video_url.includes('bilibili.com') || q.video_url.includes('player.bilibili.com')) {
+                // Bilibili Iframe Logic
+                let bvid = "";
+                if (q.video_url.includes('bvid=')) {
+                    bvid = q.video_url.split('bvid=')[1].split('&')[0];
+                } else if (q.video_url.includes('/video/')) {
+                    bvid = q.video_url.split('/video/')[1].split('/')[0].split('?')[0];
+                }
+
+                if (bvid) {
+                    videoContainer.innerHTML = `<iframe src="//player.bilibili.com/player.html?bvid=${bvid}&page=1&high_quality=1&danmaku=0" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" style="width:100%; aspect-ratio:16/9;"></iframe>`;
+                } else {
+                    videoContainer.innerHTML = `<iframe src="${q.video_url}" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" style="width:100%; aspect-ratio:16/9;"></iframe>`;
+                }
+            } else if (q.video_url.startsWith('http')) {
+                // Generic External URL
+                videoContainer.innerHTML = `<iframe src="${q.video_url}" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" style="width:100%; aspect-ratio:16/9;"></iframe>`;
+            } else {
+                // Local Upload
+                videoContainer.innerHTML = `<video controls style="width:100%; max-height: 500px;"><source src="${q.video_url}" type="video/mp4">Your browser does not support the video tag.</video>`;
+            }
+        } else {
+            videoArea.style.display = 'none';
+            videoContainer.innerHTML = '';
+        }
+
+        // Progress
+        document.getElementById('progress-text').textContent = `${currentIndex + 1} / ${questions.length}`;
+        document.getElementById('progress-bar').style.width = `${((currentIndex + 1) / questions.length) * 100}%`;
+
+        // Buttons
+        document.getElementById('prev-btn').disabled = currentIndex === 0;
+        document.getElementById('next-btn').innerHTML = currentIndex === questions.length - 1 ? '完成学习 <i class="fas fa-flag-checkered"></i>' : '下一题 <i class="fas fa-chevron-right"></i>';
+
+        // Re-render MathJax
+        if (window.MathJax) {
+            MathJax.typesetPromise().catch(err => console.error('MathJax error:', err));
+        }
+    }
+
+    // V1.3.14: Unified Handler
+    function handleOptClick(key, type) {
+        // If already showing answer, disable clicks
+        if (document.getElementById('answer-area').style.display === 'block') return;
+
+        if (type === 'multi') {
+            // Toggle
+            const el = document.getElementById(`opt-${key}`);
+            if (selectedOpts.has(key)) {
+                selectedOpts.delete(key);
+                el.style.borderColor = 'transparent';
+                el.style.background = 'white';
+            } else {
+                selectedOpts.add(key);
+                el.style.borderColor = 'var(--accent)';
+                el.style.background = 'rgba(108,92,231,0.05)';
+            }
+        } else {
+            // Single choice: Immediate check
+            checkAnswer(key);
+        }
+    }
+
+    // V1.3.14: Multi-Submit
+    function submitMulti() {
+        const answer = Array.from(selectedOpts).sort().join('').toUpperCase();
+        if (!answer) {
+            showToast("请至少选择一个选项", false);
+            return;
+        }
+        checkAnswer(answer);
+    }
+
+    function checkAnswer(userAnswer) {
+        const q = questions[currentIndex];
+        // Normalize strings
+        const correct = (q.correct_answer || '').trim().toUpperCase();
+        const user = userAnswer.trim().toUpperCase();
+
+        const isCorrect = user === correct;
+
+        // Visual Feedback
+        document.querySelectorAll('.opt').forEach(o => {
+            o.classList.remove('correct', 'wrong');
+            o.style.borderColor = 'transparent'; // Reset multi styles
+            o.style.background = 'white';
+        });
+
+        // Highlight selected/clicked
+        // For multi, highlight all selected. For single, highlight the one clicked.
+        if (q.question_type === 'multi') {
+            user.split('').forEach(k => {
+                const el = document.getElementById(`opt-${k.toLowerCase()}`);
+                if (el) el.classList.add(isCorrect ? 'correct' : 'wrong');
+            });
+        } else {
+            // For single, user is just one char
+            const el = document.getElementById(`opt-${user.toLowerCase()}`);
+            if (el) el.classList.add(isCorrect ? 'correct' : 'wrong');
+        }
+
+        if (isCorrect) {
+            showToast("回答正确！", true);
+            // V1.3.14: Auto-record Correct
+            record(1);
+            setTimeout(toggleAnswer, 500);
+        } else {
+            showToast("答案错误", false);
+            // V1.3.14: Auto-record Wrong
+            record(0);
+        }
+    }
+
+    function toggleAnswer() {
+        document.getElementById('answer-area').style.display = 'block';
+        document.getElementById('toggle-answer-btn').style.display = 'none';
+        document.getElementById('record-btns').style.display = 'inline-flex';
+        // Hide submit btn if multi
+        const subBtn = document.getElementById('btn-submit-multi');
+        if (subBtn) subBtn.style.display = 'none';
+
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    async function record(ok) {
+        const q = questions[currentIndex];
+        try {
+            const resp = await fetch('/api/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qid: q.id, ok: !!ok })
+            });
+            if (resp.ok) {
+                console.log("Record saved:", ok);
+                // V1.3.20: Add Feedback for Manual Record (Subjective)
+                if (ok) showToast("🎉 已标记为正确/掌握", true);
+                else showToast("已标记为错误/难点", false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 记录失败", false);
+        }
+    }
+
+    function nextQuestion() {
+        if (currentIndex < questions.length - 1) {
+            currentIndex++;
+            renderQuestion();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            location.href = '/';
+        }
+    }
+
+    function prevQuestion() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            renderQuestion();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    // Initial render
+    renderQuestion();
+</script>
+
+<style>
+    .study-container {
+        max-width: 1200px;
+        margin-left: 0;
+        padding: 2rem 0;
+    }
+</style>
+{% endblock %}

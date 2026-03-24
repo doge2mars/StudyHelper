@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 1000px; margin: 4rem auto; text-align: center;">
+    <h1 style="font-size: 2.2rem; margin-bottom: 1rem;">试卷录入中心</h1>
+    <p style="opacity: 0.6; margin-bottom: 4rem;">选择您最方便的录入方式</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem;">
+        <!-- Card 1: Slicer -->
+        <div class="glass-card"
+            style="padding: 3rem; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; transition: 0.3s;"
+            onmouseover="this.style.transform='translateY(-10px)'" onmouseout="this.style.transform='none'">
+            <div style="font-size: 4rem; color: var(--accent); margin-bottom: 1rem;">
+                <i class="fas fa-scissors"></i>
+            </div>
+            <h2 style="margin: 0;">试卷切题录入</h2>
+            <p style="color: #636e72; line-height: 1.6; font-size: 0.95rem;">
+                适用于 PDF 或 图片格式的试卷，通过手动选区快速截取题目图片并录入。
+            </p>
+            <div style="margin-top: 1rem;">
+                <a href="/slicer" class="btn btn-primary"
+                    style="padding: 0.8rem 2.5rem; border-radius: 12px; font-weight: 600; box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);">
+                    开始切题
+                </a>
+            </div>
+        </div>
+
+        <!-- Card 2: Manual/Text -->
+        <div class="glass-card"
+            style="padding: 3rem; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; transition: 0.3s;"
+            onmouseover="this.style.transform='translateY(-10px)'" onmouseout="this.style.transform='none'">
+            <div style="font-size: 4rem; color: var(--success); margin-bottom: 1rem;">
+                <i class="fas fa-keyboard"></i>
+            </div>
+            <h2 style="margin: 0;">普通文本录入</h2>
+            <p style="color: #636e72; line-height: 1.6; font-size: 0.95rem;">
+                适用于文字版电子文档，直接复制粘贴题目文本及选项，操作更精准。
+            </p>
+            <div style="margin-top: 1rem;">
+                <a href="/papers" class="btn"
+                    style="padding: 0.8rem 2.5rem; border-radius: 12px; font-weight: 600; color: var(--success); border: 1.5px solid var(--success); background: transparent;">
+                    去试卷中心录入
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

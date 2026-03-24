@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 深度学习</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=3.0.0">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #FFFFFF;
+            --card: #FFFFFF;
+            --text: #4B4B4B;
+            --primary: #1CB0F6;
+            --danger: #FF4B4B;
+            --input-bg: #F7F7F7;
+        }
+
+        body.dark {
+            --bg: #131415;
+            --card: #202225;
+            --text: #f1f2f6;
+            --primary: #1CB0F6;
+            --input-bg: rgba(0, 0, 0, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: 'Outfit', -apple-system, sans-serif;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-wrapper {
+            width: 100%;
+            max-width: 460px;
+            padding: 20px;
+        }
+
+        .glass-card {
+            background: var(--card);
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        body.dark .glass-card {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+        }
+
+        .logo-container {
+            margin-bottom: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logo-title {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-svg {
+            width: 42px;
+            height: 42px;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+            position: relative;
+        }
+
+        .form-group i {
+            position: absolute;
+            left: 1.2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text);
+            opacity: 0.35;
+            font-size: 1.1rem;
+            z-index: 10;
+        }
+
+        input {
+            width: 100%;
+            padding: 1.1rem 1.1rem 1.1rem 3.2rem;
+            border-radius: 16px;
+            border: 2px solid rgba(0, 0, 0, 0.05);
+            background: var(--input-bg);
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text);
+            transition: all 0.2s;
+        }
+
+        body.dark input {
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+
+        input::placeholder {
+            color: var(--text);
+            opacity: 0.4;
+            font-weight: 500;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: var(--bg);
+        }
+
+        .btn {
+            width: 100%;
+            border: none;
+            padding: 1.1rem;
+            border-radius: 16px;
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 1.15rem;
+            color: white;
+            background: var(--primary);
+            box-shadow: 0 4px 0 rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: 1px;
+            transition: transform 0.1s, box-shadow 0.1s;
+            margin-top: 1.5rem;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+
+        .error-msg {
+            background: rgba(255, 75, 75, 0.1);
+            color: var(--danger);
+            padding: 0.8rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border: 1px solid rgba(255, 75, 75, 0.2);
+        }
+    </style>
+</head>
+
+<body class="{% if request.cookies.get('theme') == 'dark' %}dark{% endif %}">
+    <div class="login-wrapper">
+        <div class="glass-card">
+            <div class="logo-container">
+                <div class="logo-title">
+                    <i class="fas fa-brain"></i>
+                    深度学习
+                </div>
+            </div>
+
+            {% if request.query_params.get('error') == 'invalid' %}
+            <div class="error-msg">
+                <i class="fas fa-exclamation-circle"></i> 用户名或密码错误
+            </div>
+            {% endif %}
+
+            <form action="/login" method="POST">
+                <div class="form-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" name="username" required placeholder="用户名 (Username)">
+                </div>
+                <div class="form-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" name="password" required placeholder="密码 (Password)">
+                </div>
+                <button type="submit" class="btn">
+                    进入系统
+                </button>
+            </form>
+        </div>
+    </div>
+</body>
+
+</html>

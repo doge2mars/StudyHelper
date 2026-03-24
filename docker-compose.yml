@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  study-helper:
+    build: .
+    container_name: study-helper-v3
+    ports:
+      - "8869:8000"
+    volumes:
+      - ./data:/app/data
+      - ./static/uploads:/app/static/uploads
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai

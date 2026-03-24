@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: grid; grid-template-columns: 150px 1fr; gap: 1rem;">
+    <!-- Sidebar: Subjects -->
+    <aside>
+        <div class="glass-card" style="padding: 1rem;">
+            <h3 style="font-size: 1rem; margin-bottom: 1rem; opacity: 0.7;">科目筛选</h3>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                <a href="/manage" class="btn {% if not current_sid %}btn-primary{% endif %}"
+                    style="justify-content: flex-start; padding: 0.5rem 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <i class="fas fa-list"></i> 全部题目
+                </a>
+                {% for s in subjects %}
+                <a href="/manage?sid={{ s.id }}" class="btn {% if current_sid == s.id %}btn-primary{% endif %}"
+                    style="justify-content: flex-start; padding: 0.5rem 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <i class="fas fa-book"></i> {{ s.name }}
+                </a>
+                {% if current_sid == s.id and tags %}
+                <div
+                    style="padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.25rem; margin-top: -0.25rem; margin-bottom: 0.5rem;">
+                    <a href="/manage?sid={{ s.id }}"
+                        class="btn {% if not current_tag_id %}btn-primary{% else %}btn-outline{% endif %}"
+                        style="justify-content: flex-start; padding: 0.3rem 0.8rem; font-size: 0.85rem; border: none; background: {% if not current_tag_id %}rgba(108, 92, 231, 0.1){% else %}transparent{% endif %}; color: {% if not current_tag_id %}var(--primary){% else %}inherit{% endif %}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        全部板块
+                    </a>
+                    {% for t in tags %}
+                    <a href="/manage?sid={{ s.id }}&tag_id={{ t.id }}"
+                        class="btn {% if current_tag_id == t.id %}btn-primary{% else %}btn-outline{% endif %}"
+                        style="justify-content: flex-start; padding: 0.3rem 0.8rem; font-size: 0.85rem; border: none; background: {% if current_tag_id == t.id %}rgba(108, 92, 231, 0.1){% else %}transparent{% endif %}; color: {% if current_tag_id == t.id %}var(--primary){% else %}inherit{% endif %}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <i class="fas fa-hashtag" style="opacity: 0.5; font-size: 0.8em;"></i> {{ t.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content: Questions -->
+    <main>
+        <div class="glass-card"
+            style="padding: 1rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div style="display:flex; align-items:center; gap:1rem;">
+                <h2 style="margin: 0;"><i class="fas fa-database"></i> 题库管理</h2>
+                <div style="font-size: 0.9rem; opacity: 0.7;">共 {{ questions|length }} 题</div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+                <button id="btn-export" onclick="batchExport()" class="btn"
+                    style="background:var(--accent); color:white; opacity:0.5; pointer-events:none;">
+                    <i class="fas fa-file-export"></i> 导出选中
+                </button>
+                <button id="btn-distribute" onclick="openDistributeModal()" class="btn"
+                    style="background:var(--primary); color:white; opacity:0.5; pointer-events:none;">
+                    <i class="fas fa-paper-plane"></i> 分发选中
+                </button>
+                <button id="btn-delete" onclick="batchDelete()" class="btn"
+                    style="background:var(--danger); color:white; opacity:0.5; pointer-events:none;">
+                    <i class="fas fa-trash"></i> 删除选中
+                </button>
+            </div>
+        </div>
+
+        <div class="glass-card" style="padding: 0;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid rgba(0,0,0,0.05); background: rgba(0,0,0,0.02);">
+                        <th style="padding: 1rem; width: 40px; text-align: center;">
+                            <input type="checkbox" id="select-all" onchange="toggleSelectAll()">
+                        </th>
+                        <th style="padding: 1rem; text-align: left;">题目内容</th>
+                        <th style="padding: 0.5rem; text-align: center; width: 70px;">
+                            <a href="/manage?{% if current_sid %}sid={{ current_sid }}&{% endif %}{% if current_tag_id %}tag_id={{ current_tag_id }}&{% endif %}sort=type"
+                                style="color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                类型 <i class="fas fa-sort" style="font-size: 0.8em; opacity: 0.5;"></i>
+                            </a>
+                        </th>
+                        <th style="padding: 0.5rem; text-align: center; width: 80px;">科目</th>
+                        <th style="padding: 0.5rem; text-align: center; width: 80px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in questions %}
+                    <tr style="border-bottom: 1px solid rgba(0,0,0,0.05); transition: 0.3s;"
+                        onmouseover="this.style.background='rgba(108, 92, 231, 0.05)'"
+                        onmouseout="this.style.background='transparent'">
+                        <td style="padding: 1rem; text-align: center; position: relative;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                <input type="checkbox" class="q-checkbox" value="{{ q.id }}" onchange="updateToolbar()">
+                                <span style="font-size: 0.9rem; color: #333; font-weight: 500;">
+                                    {{ loop.index }}
+                                </span>
+                            </div>
+                        </td>
+                        <td style="padding: 1rem;">
+                            <a href="/question/{{ q.id }}"
+                                style="color: inherit; text-decoration: none; display: block;">
+                                <div
+                                    style="max-height: 60px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 0.9rem; font-weight: 500;">
+                                    {{ q.question_text }}
+                                    {% if q.grade %}<span class="grade-badge"
+                                        style="font-size:0.75rem; margin-left:8px; padding: 2px 6px;">{{ q.grade
+                                        }}</span>{% endif %}
+                                </div>
+                            </a>
+                            </a>
+                            {% if q.tags %}
+                            <div style="margin-top: 0.5rem; display: flex; gap: 4px; flex-wrap: wrap;">
+                                {% for tag in q.tags %}
+                                <span class="badge"
+                                    style="background: rgba(108, 92, 231, 0.1); color: var(--primary); font-size: 0.75rem; padding: 2px 6px;">
+                                    <i class="fas fa-hashtag" style="opacity: 0.5;"></i> {{ tag.name }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if q.source %}
+                            <div style="font-size: 0.7rem; opacity: 0.5; margin-top: 0.4rem;">来源: {{ q.source }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.5rem; text-align: center;">
+                            <span class="badge" style="background: rgba(0,0,0,0.05); font-size: 0.75rem;">
+                                {% if q.question_type == 'objective' %}单选
+                                {% elif q.question_type == 'multi' %}多选
+                                {% elif q.question_type == 'fill' %}填空
+                                {% else %}大题{% endif %}
+                            </span>
+                            {% if q.is_difficult %}
+                            <br><span class="badge"
+                                style="background:rgba(214, 48, 49, 0.1); color:var(--danger); font-size:0.6rem; margin-top:2px;">难</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.5rem; text-align: center; font-size: 0.9rem; opacity: 0.8;">
+                            {{ q.s_name }}
+                        </td>
+                        <td style="padding: 0.5rem; text-align: center;">
+                            {% if q.is_difficult %}
+                            <button onclick="event.stopPropagation(); unmarkDifficult({{ q.id }})" class="btn btn-icon"
+                                style="color: var(--warning);" title="移除难点"><i
+                                    class="fas fa-star-half-alt"></i></button>
+                            {% endif %}
+                            <a href="/question/{{ q.id }}/edit?v=305" class="btn btn-icon"
+                                style="color: var(--primary);" title="编辑">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <button onclick="event.stopPropagation(); deleteQuestion({{ q.id }})" class="btn btn-icon"
+                                style="color: var(--danger);" title="删除"><i class="fas fa-trash-alt"></i></button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" style="padding: 3rem; text-align: center; opacity: 0.5;">
+                            <i class="fas fa-ghost" style="font-size: 3rem; display: block; margin-bottom: 1rem;"></i>
+                            暂无题目，快去“试卷中心”分发或添加一些吧！
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
+<script>
+    // --- Batch Operations ---
+    function toggleSelectAll() {
+        const selectAll = document.getElementById('select-all');
+        const checkboxes = document.querySelectorAll('.q-checkbox');
+        checkboxes.forEach(cb => cb.checked = selectAll.checked);
+        updateToolbar();
+    }
+
+    function updateToolbar() {
+        const checkboxes = document.querySelectorAll('.q-checkbox:checked');
+        const count = checkboxes.length;
+        const btnDistribute = document.getElementById('btn-distribute');
+        const btnDelete = document.getElementById('btn-delete');
+        const btnExport = document.getElementById('btn-export');
+
+        if (count > 0) {
+            btnDistribute.style.opacity = '1';
+            btnDistribute.style.pointerEvents = 'auto';
+            btnDelete.style.opacity = '1';
+            btnDelete.style.pointerEvents = 'auto';
+            btnExport.style.opacity = '1';
+            btnExport.style.pointerEvents = 'auto';
+            btnDistribute.innerHTML = '<i class="fas fa-paper-plane"></i> 分发选中 (' + count + ')';
+            btnDelete.innerHTML = '<i class="fas fa-trash"></i> 删除选中 (' + count + ')';
+            btnExport.innerHTML = '<i class="fas fa-file-export"></i> 导出选中 (' + count + ')';
+        } else {
+            btnDistribute.style.opacity = '0.5';
+            btnDistribute.style.pointerEvents = 'none';
+            btnDelete.style.opacity = '0.5';
+            btnDelete.style.pointerEvents = 'none';
+            btnExport.style.opacity = '0.5';
+            btnExport.style.pointerEvents = 'none';
+            btnDistribute.innerHTML = '<i class="fas fa-paper-plane"></i> 分发选中';
+            btnDelete.innerHTML = '<i class="fas fa-trash"></i> 删除选中';
+            btnExport.innerHTML = '<i class="fas fa-file-export"></i> 导出选中';
+        }
+    }
+
+    // --- Distribute Modal ---
+    function openDistributeModal() {
+        const count = document.querySelectorAll('.q-checkbox:checked').length;
+        if (count === 0) return;
+        document.getElementById('dist-count').innerText = count;
+        document.getElementById('distribute-modal').style.display = 'flex';
+    }
+
+    function closeDistributeModal() {
+        document.getElementById('distribute-modal').style.display = 'none';
+    }
+
+    async function confirmDistribute() {
+        const checkboxes = document.querySelectorAll('.q-checkbox:checked');
+        const questionIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        const targetUserSelect = document.getElementById('target-user');
+        const targetUserId = targetUserSelect.value ? parseInt(targetUserSelect.value) : null;
+
+        if (questionIds.length === 0) return;
+        if (!targetUserId) return;
+
+        const btn = document.querySelector('#distribute-modal button.btn-primary');
+        const originalText = btn.innerText;
+        btn.innerText = '分发中...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/batch-distribute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question_ids: questionIds, target_user_id: targetUserId })
+            });
+            const data = await res.json();
+
+            closeDistributeModal();
+
+            if (res.ok) {
+                if (data.stats) {
+                    alert(`分发结果汇报：\n\n📌 选中总数：${data.stats.total}\n✅ 成功分发：${data.stats.success}\n⚠️ 重复跳过：${data.stats.duplicate}\n❌ 分发失败：${data.stats.failed}`);
+                } else {
+                    showToast(`✅ 分发成功`, true);
+                }
+
+                // Clear selection
+                checkboxes.forEach(cb => cb.checked = false);
+                if (typeof updateToolbar === 'function') updateToolbar();
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast("❌ " + (data.error || "分发失败"), false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        } finally {
+            if (btn) {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+    }
+
+    async function batchDelete() {
+        const checkboxes = document.querySelectorAll('.q-checkbox:checked');
+        const questionIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (questionIds.length === 0) return;
+        if (!(await LingoModal.confirm('批量删除', `确定要删除这 ${questionIds.length} 道题目吗？此操作不可恢复！`, true))) return;
+
+        try {
+            const res = await fetch('/api/batch-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question_ids: questionIds })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(`✅ 成功删除 ${data.count} 道题目`, true);
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast("❌ " + (data.error || "删除失败"), false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        }
+    }
+
+    async function batchExport() {
+        const checkboxes = document.querySelectorAll('.q-checkbox:checked');
+        const questionIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (questionIds.length === 0) return;
+
+        const btn = document.getElementById('btn-export');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 打包...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/export-questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question_ids: questionIds })
+            });
+
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                let filename = `study_export_${Date.now()}.zip`;
+                const disp = res.headers.get('Content-Disposition');
+                if (disp && disp.includes('filename=')) {
+                    filename = disp.split('filename=')[1].replace(/"/g, '');
+                }
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                showToast("✅ 试题包已成功导出", true);
+            } else {
+                let errText = "导出失败";
+                try {
+                    const data = await res.json();
+                    if (data.error) errText = data.error;
+                } catch (e) { }
+                showToast("❌ " + errText, false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        } finally {
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+    }
+
+    // --- Individual Operations ---
+    async function deleteQuestion(qid) {
+        if (!(await LingoModal.confirm('删除题目', '确定从题库中永久删除这道题吗？', true))) return;
+        try {
+            const res = await fetch(`/api/delete/${qid}`, { method: 'POST' });
+            if (res.ok) {
+                showToast("✅ 删除成功", true);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast("❌ 删除失败", false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        }
+    }
+
+    async function unmarkDifficult(qid) {
+        if (!(await LingoModal.confirm('移出难点', '确定清除此题的难点/错题标记吗？'))) return;
+        try {
+            const res = await fetch(`/api/unmark-difficult/${qid}`, { method: 'POST' });
+            if (res.ok) {
+                showToast("✅ 已移出难点", true);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast("❌ 操作失败", false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        }
+    }
+</script>
+
+<!-- Distribute Modal -->
+<div id="distribute-modal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+    <div class="glass-card" style="width:400px; padding:2rem; background:white;">
+        <h3 style="margin-top:0;">分发试题</h3>
+        <p>将选中的 <span id="dist-count" style="font-weight:bold; color:var(--primary);">0</span> 道题目分发给：</p>
+        <select id="target-user"
+            style="width:100%; padding:0.5rem; margin-bottom:1.5rem; border:1px solid #ddd; border-radius:4px;">
+            {% for u in all_users %}
+            {% if u.id != user.id %}
+            <option value="{{ u.id }}">{{ u.username }}</option>
+            {% endif %}
+            {% endfor %}
+        </select>
+        <div style="display:flex; justify-content:flex-end; gap:1rem;">
+            <button onclick="closeDistributeModal()" class="btn">取消</button>
+            <button onclick="confirmDistribute()" class="btn btn-primary">确认分发</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

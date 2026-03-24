@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div>
+        <h1 style="margin: 0;"><i class="fas fa-folder-open"></i> {{ subject.name }}</h1>
+        <div style="display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.9rem; color: #636e72;">
+            <span>📚 总题: {{ stats.total }}</span>
+            <span style="color: var(--danger);">❌ 错题: {{ stats.wrong }}</span>
+            <span style="color: #e67e22;">⭐ 难点: {{ stats.difficult }}</span>
+        </div>
+    </div>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+        <div class="dropdown" style="position: relative;">
+            <select id="studyMode"
+                style="padding: 0.5rem; border-radius: 8px; border: 1px solid #dfe6e9; background: white; cursor: pointer;">
+                <option value="all_loop">🔄 全部循环</option>
+                <option value="error">❌ 错题复习</option>
+                <option value="difficult">⭐ 难点攻克</option>
+                <option value="normal">📚 纯题库</option>
+            </select>
+        </div>
+        <div class="dropdown" style="position: relative;">
+            <select id="qType"
+                style="padding: 0.5rem; border-radius: 8px; border: 1px solid #dfe6e9; background: white; cursor: pointer;">
+                <option value="all">📦 全部题型</option>
+                <option value="single">🔘 单选题</option>
+                <option value="multi">☑️ 多选题</option>
+                <option value="fill">📝 填空题</option>
+                <option value="essay">📑 大题</option>
+            </select>
+        </div>
+        <form id="import-form" style="display:none">
+            <input type="hidden" name="sid" value="{{ subject.id }}">
+            <input type="file" name="file" accept=".zip" onchange="submitImport(this)">
+        </form>
+        <button class="btn" style="background:rgba(108, 92, 231, 0.1); color:var(--accent)"
+            onclick="document.querySelector('#import-form input[type=file]').click()">
+            <i class="fas fa-file-import"></i> 导入题目包
+        </button>
+        <a href="/subject/{{ subject.id }}/add" class="btn btn-primary">
+            <i class="fas fa-plus"></i> 录题
+        </a>
+        <button onclick="startStudy()" class="btn" style="background: var(--success); color: white;">
+            <i class="fas fa-play"></i> 开始刷题
+        </button>
+    </div>
+</div>
+
+<script>
+    function startStudy() {
+        const mode = document.getElementById('studyMode').value;
+        const type = document.getElementById('qType').value;
+        window.location.href = `/subject/{{ subject.id }}/study?mode=${mode}&qtype=${type}`;
+    }
+</script>
+
+<div class="glass-card" style="padding: 0; overflow: hidden;">
+    <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="border-bottom: 2px solid rgba(0,0,0,0.05); background: rgba(0,0,0,0.02);">
+                <th style="padding: 1.2rem; text-align: left;">题目内容</th>
+                <th style="padding: 1.2rem; text-align: center; width: 120px;">
+                    <a href="/subject/{{ subject.id }}?sort=status"
+                        style="color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        状态 <i class="fas fa-sort" style="font-size: 0.8em; opacity: 0.5;"></i>
+                    </a>
+                </th>
+                <th style="padding: 1.2rem; text-align: center; width: 120px;">
+                    <a href="/subject/{{ subject.id }}?sort=type"
+                        style="color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        类型 <i class="fas fa-sort" style="font-size: 0.8em; opacity: 0.5;"></i>
+                    </a>
+                </th>
+                <th style="padding: 1.2rem; text-align: center; width: 150px;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for q in questions %}
+            <tr style="border-bottom: 1px solid rgba(0,0,0,0.05); transition: 0.3s; cursor: pointer;"
+                onmouseover="this.style.background='rgba(108, 92, 231, 0.03)'"
+                onmouseout="this.style.background='transparent'" onclick="location.href='/question/{{ q.id }}'">
+                <td style="padding: 1.2rem;">
+                    <div style="font-weight: 500; margin-bottom: 0.3rem;">
+                        <span style="color: #666; margin-right: 4px;">{{ loop.index }}.</span>
+                        {{ q.question_text[:100] }}{% if q.question_text|length > 100 %}...{% endif %}
+                        {% if not q.question_text %}（图示题）{% endif %}
+                        {% if q.grade %}<span class="grade-badge"
+                            style="font-size:0.75rem; margin-left:8px; padding: 2px 6px;">{{ q.grade }}</span>{% endif
+                        %}
+                    </div>
+                    {% if q.source %}
+                    <div style="font-size: 0.8rem; opacity: 0.5;">来源: {{ q.source }}</div>
+                    {% endif %}
+                </td>
+                <td style="padding: 1rem; text-align: center;">
+                    {# V1.3.17: Strict Sync with Paper Detail (0.7rem, no '次') #}
+                    {% if q.wrong_count > 0 %}
+                    <span class="badge" style="background:var(--danger); color:white; font-size:0.7rem;">错 {{
+                        q.wrong_count
+                        }}</span>
+                    {% elif q.history_wrong == 1 %}
+                    <span class="badge" style="background:var(--warning); color:white; font-size:0.7rem;">曾错</span>
+                    {% elif q.has_record %}
+                    <span class="badge" style="background:var(--success); color:white; font-size:0.7rem;">已掌握</span>
+                    {% endif %}
+
+                    {% if q.is_difficult %}
+                    <span class="badge"
+                        style="background:rgba(214, 48, 49, 0.1); color:var(--danger); font-size:0.7rem;">难</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 1.2rem; text-align: center;">
+                    <span style="font-size: 0.85rem; opacity: 0.7;">
+                        {% if q.question_type == 'objective' %}单选
+                        {% elif q.question_type == 'multi' %}多选
+                        {% elif q.question_type == 'fill' %}填空
+                        {% else %}大题{% endif %}
+                    </span>
+                </td>
+                <td style="padding: 1.2rem; text-align: center;" onclick="event.stopPropagation()">
+                    <div style="display: flex; gap: 0.6rem; justify-content: center;">
+                        <!-- Preview button removed -->
+                        {% if q.paper_id %}
+                        <button onclick="cloneQuestion({{ q.id }})" class="btn btn-icon" style="color: var(--success);"
+                            title="加入题库">
+                            <i class="fas fa-plus-circle"></i>
+                        </button>
+                        {% else %}
+                        <button onclick="deleteQuestion({{ q.id }})" class="btn btn-icon" style="color: var(--danger);"
+                            title="删除"><i class="fas fa-trash-alt"></i></button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="4" style="padding: 5rem; text-align: center; opacity: 0.5;">
+                    <i class="fas fa-ghost" style="font-size: 4rem; display: block; margin-bottom: 1.5rem;"></i>
+                    该科目下还没有题目，快去录入第一道题吧！
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+<script>
+    async function deleteQuestion(qid) {
+        if (!confirm('确定从题库中永久删除这道题吗？')) return;
+        try {
+            const res = await fetch(`/api/delete/${qid}`, { method: 'POST' });
+            if (res.ok) {
+                showToast("✅ 删除成功", true);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast("❌ 删除失败", false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        }
+    }
+
+    async function cloneQuestion(qid) {
+        try {
+            const res = await fetch(`/api/clone-to-bank/${qid}`, { method: 'POST' });
+            if (res.ok) {
+                showToast("✅ 已加入题库", true);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast("❌ 加入失败", false);
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("❌ 网络错误", false);
+        }
+    }
+
+    async function submitImport(inputElement) {
+        if (!inputElement.files.length) return;
+
+        const form = document.getElementById('import-form');
+        const formData = new FormData(form);
+
+        showToast("📦 正在处理导入...", true);
+
+        try {
+            const res = await fetch('/api/import-questions', {
+                method: 'POST',
+                body: formData
+            });
+            const stats = await res.json();
+            if (res.ok) {
+                alert(`✨ 导入完成！\n\n📌 总识别题目: ${stats.total}\n✅ 成功导入: ${stats.success}\n⚠️ 重复跳过: ${stats.duplicate}\n❌ 导入失败: ${stats.failed}`);
+                location.reload();
+            } else {
+                alert("❌ 导入失败: " + (stats.error || "未知错误"));
+            }
+        } catch (e) {
+            console.error(e);
+            alert("❌ 网络错误: 无法连接至服务器");
+        } finally {
+            inputElement.value = '';
+        }
+    }
+</script>
+{% endblock %}

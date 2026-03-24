@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  study-helper-v14:
+    build: .
+    container_name: study-helper-v14-dev
+    ports:
+      - "8867:8000" # 使用不同端口 8867，避免冲突
+    volumes:
+      - ./data:/app/data
+      - ./static/uploads:/app/static/uploads
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai

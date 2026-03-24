@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="glass-card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h2 style="margin: 0;"><i class="fas fa-users-cog"></i> 用户管理</h2>
+        <button class="btn btn-primary" onclick="document.getElementById('add-user-modal').style.display='flex'">
+            <i class="fas fa-user-plus"></i> 新增用户
+        </button>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
+        <thead>
+            <tr style="text-align: left; opacity: 0.7; border-bottom: 1px solid rgba(0,0,0,0.05);">
+                <th style="padding: 1rem;">用户名</th>
+                <th style="padding: 1rem;">姓名</th>
+                <th style="padding: 1rem;">角色</th>
+                <th style="padding: 1rem;">注册时间</th>
+                <th style="padding: 1rem;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr style="border-bottom: 1px solid rgba(0,0,0,0.03);">
+                <td style="padding: 1rem; font-weight: 600;">{{ u.username }}</td>
+                <td style="padding: 1rem; color: var(--accent); font-weight: 500;">
+                    {% if u.display_name %}{{ u.display_name }}{% else %}<span style="opacity:0.3">—</span>{% endif %}
+                </td>
+                <td style="padding: 1rem;">
+                    <span class="badge"
+                        style="background: {% if u.role == 'admin' %}rgba(108, 92, 231, 0.2){% else %}rgba(0,0,0,0.05){% endif %}; color: {% if u.role == 'admin' %}var(--accent){% else %}inherit{% endif %};">
+                        {{ u.role }}
+                    </span>
+                </td>
+                <td style="padding: 1rem; opacity: 0.6; font-size: 0.9rem;">{{ u.created_at }}</td>
+                <td style="padding: 1rem; display: flex; gap: 0.5rem;">
+                    <button class="btn btn-icon" style="color: var(--accent);"
+                        onclick="openEditName({{ u.id }}, '{{ u.display_name or '' }}')" title="修改姓名">
+                        <i class="fas fa-pen"></i>
+                    </button>
+                    {% if u.id != user.id %}
+                    <button class="btn btn-icon" style="color: #f39c12;"
+                        onclick="openResetPassword({{ u.id }}, '{{ u.username }}', '{{ u.display_name or '' }}')"
+                        title="重置密码">
+                        <i class="fas fa-key"></i>
+                    </button>
+                    <form action="/admin/user/delete/{{ u.id }}" method="POST"
+                        onsubmit="event.preventDefault(); LingoModal.confirm('删除用户', '确定删除该用户吗？', true).then(r => { if(r) this.submit(); })">
+                        <button class="btn btn-icon" style="color: var(--danger);" title="删除用户"><i
+                                class="fas fa-trash"></i></button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add User Modal -->
+<div id="add-user-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.2); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="width: 400px; animation: pop 0.3s;">
+        <h3>新增学习账号</h3>
+        <form action="/admin/user/add" method="POST">
+            <div class="form-group">
+                <label>用户名（登录用）</label>
+                <input type="text" name="username" required placeholder="如: xiaoming">
+            </div>
+            <div class="form-group">
+                <label>姓名（方便识别）</label>
+                <input type="text" name="display_name" placeholder="如: 小明">
+            </div>
+            <div class="form-group">
+                <label>登录密码</label>
+                <input type="password" name="password" required>
+            </div>
+            <div class="form-group">
+                <label>用户权限</label>
+                <select name="role">
+                    <option value="user">普通学习者</option>
+                    <option value="admin">系统管理员</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="button" class="btn" style="flex: 1; justify-content: center;"
+                    onclick="document.getElementById('add-user-modal').style.display='none'">取消</button>
+                <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center;">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Name Modal -->
+<div id="edit-name-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.2); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="width: 380px; animation: pop 0.3s;">
+        <h3>✏️ 修改姓名</h3>
+        <form action="/admin/user/update-name" method="POST">
+            <input type="hidden" name="uid" id="edit-uid">
+            <div class="form-group">
+                <label>姓名</label>
+                <input type="text" name="display_name" id="edit-display-name" placeholder="输入真实姓名">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="button" class="btn" style="flex: 1; justify-content: center;"
+                    onclick="document.getElementById('edit-name-modal').style.display='none'">取消</button>
+                <button type="submit" class="btn btn-primary" style="flex: 1; justify-content: center;">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="reset-pwd-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.2); backdrop-filter: blur(5px); z-index: 1000; justify-content: center; align-items: center;">
+    <div class="glass-card" style="width: 380px; animation: pop 0.3s;">
+        <h3>🔑 重置用户密码</h3>
+        <p style="font-size: 0.9rem; color: #636e72; margin-bottom: 1.5rem;">为 <strong
+                id="reset-pwd-user-label"></strong> 设置新密码</p>
+        <form action="/admin/user/reset-password" method="POST">
+            <input type="hidden" name="uid" id="reset-pwd-uid">
+            <div class="form-group">
+                <label>新密码</label>
+                <input type="password" name="new_password" required placeholder="输入新密码">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="button" class="btn" style="flex: 1; justify-content: center;"
+                    onclick="document.getElementById('reset-pwd-modal').style.display='none'">取消</button>
+                <button type="submit" class="btn btn-primary"
+                    style="flex: 1; justify-content: center; background: #f39c12;">强制重置</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openEditName(uid, currentName) {
+        document.getElementById('edit-uid').value = uid;
+        document.getElementById('edit-display-name').value = currentName;
+        document.getElementById('edit-name-modal').style.display = 'flex';
+    }
+
+    function openResetPassword(uid, username, displayName) {
+        document.getElementById('reset-pwd-uid').value = uid;
+        const nameLabel = displayName ? `${displayName} (${username})` : username;
+        document.getElementById('reset-pwd-user-label').innerText = nameLabel;
+        document.getElementById('reset-pwd-modal').style.display = 'flex';
+    }
+    window.onload = function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('msg') === 'reset_pwd_ok') {
+            showToast("✅ 密码已重置成功！", true);
+        }
+    }
+</script>
+{% endblock %}
