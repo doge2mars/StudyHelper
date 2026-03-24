@@ -17,8 +17,8 @@ jobs:
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: doge2mars
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -27,5 +27,5 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            doge2mars/study-helper:latest
-            doge2mars/study-helper:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/study-helper:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/study-helper:${{ github.sha }}
