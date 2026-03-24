@@ -1,6 +1,6 @@
-# 📚 Study Helper Pro V2.5.0
+# 📚 Study Helper Pro V3.0.6
 
-![Version](https://img.shields.io/badge/version-V2.5.0-blue.svg)](https://github.com/doge2mars/StudyHelper)
+![Version](https://img.shields.io/badge/version-V3.0.6-blue.svg)](https://github.com/doge2mars/StudyHelper)
 [![Docker](https://img.shields.io/badge/Docker-Ready-brightgreen.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -10,7 +10,8 @@
 
 ## ✨ 核心特性
 
-### 新增亮点 (V2.4)
+### 新增亮点 (V3.0)
+*   ✨ **智能去重 (Smart Deduplication)**: 所有导入与分发入口均支持自动 `strip()` 处理，彻底解决因首尾空格或换行符导致的重复录入问题。
 *   ✨ **进阶智能切题**：PDF 切片录入端内置 AI 一键解析填入，与通用录入页面保持数据同步。
 *   ✍️ **图文独立解析**：支持拆分的解析本文及讲解过程。
 
