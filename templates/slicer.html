@@ -76,6 +76,7 @@
             <select id="qtype" onchange="toggleOptions()">
                 <option value="objective">单选题</option>
                 <option value="multi">多选题</option>
+                <option value="true_false">判断题</option>
                 <option value="fill">填空题</option>
                 <option value="subjective" selected>主观题/大题</option>
             </select>
@@ -311,6 +312,15 @@
         const type = document.getElementById('qtype').value;
         const grid = document.getElementById('options-grid');
         grid.style.display = (type === 'objective' || type === 'multi') ? 'grid' : 'none';
+        
+        const ansInput = document.getElementById('qans');
+        if (type === 'true_false') {
+            ansInput.placeholder = "填 '对' 或 '错'";
+        } else if (type === 'objective' || type === 'multi') {
+            ansInput.placeholder = "单选填A/B/C/D，多选填ABCD";
+        } else {
+            ansInput.placeholder = "在此输入答案文本";
+        }
     }
 
     function smartParse() {
@@ -345,8 +355,11 @@
         if (type) {
             if (type.includes('单选')) qTypeValue = 'objective';
             else if (type.includes('多选')) qTypeValue = 'multi';
+            else if (type.includes('判断')) qTypeValue = 'true_false';
             else if (type.includes('填空')) qTypeValue = 'fill';
             else if (type.includes('解答') || type.includes('主观')) qTypeValue = 'subjective';
+        } else if (ans && (ans === '对' || ans === '错' || ans === '正确' || ans === '错误' || ans === '√' || ans === '×')) {
+            qTypeValue = 'true_false';
         } else if (optA && optB && optC && optD) {
             if (ans && ans.length > 1 && /^[A-D]+$/i.test(ans)) {
                 qTypeValue = 'multi';

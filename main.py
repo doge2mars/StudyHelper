@@ -599,6 +599,8 @@ async def study(request: Request, sid: int, mode: str = "normal", qtype: str = "
         query += " AND q.question_type = 'objective'"
     elif qtype == "multi":
         query += " AND q.question_type = 'multi'"
+    elif qtype == "true_false":
+        query += " AND q.question_type = 'true_false'"
     elif qtype == "fill":
         query += " AND q.question_type = 'fill'"
     elif qtype == "essay":

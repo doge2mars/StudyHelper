@@ -41,13 +41,18 @@
                 <select name="q_type" id="q_type" onchange="toggleOptions()">
                     <option value="objective" selected>单选题</option>
                     <option value="multi">多选题</option>
+                    <option value="true_false">判断题</option>
                     <option value="fill">填空题</option>
                     <option value="subjective">主观题/解答题</option>
                 </select>
             </div>
             <div class="form-group">
                 <label>标准答案</label>
-                <input type="text" name="ans" placeholder="例: A 或 ABCD">
+                <div id="tf-options" style="display:none; gap:10px; margin-bottom:10px;">
+                    <button type="button" class="btn" onclick="setTF('对')" style="background:rgba(0,184,148,0.1); color:var(--success); border:1px solid var(--success); flex:1">对 (√)</button>
+                    <button type="button" class="btn" onclick="setTF('错')" style="background:rgba(214,48,49,0.1); color:var(--danger); border:1px solid var(--danger); flex:1">错 (×)</button>
+                </div>
+                <input type="text" name="ans" id="ans-input" placeholder="例: A 或 ABCD">
             </div>
         </div>
 
@@ -184,7 +189,21 @@
     function toggleOptions() {
         const type = document.getElementById('q_type').value;
         const section = document.getElementById('options-section');
+        const tfOptions = document.getElementById('tf-options');
+        const ansInput = document.getElementById('ans-input');
+        
         section.style.display = (type === 'objective' || type === 'multi') ? 'grid' : 'none';
+        tfOptions.style.display = (type === 'true_false') ? 'flex' : 'none';
+        
+        if (type === 'true_false') {
+            ansInput.placeholder = "填 '对' 或 '错'";
+        } else {
+            ansInput.placeholder = "例: A 或 ABCD";
+        }
+    }
+
+    function setTF(val) {
+        document.getElementById('ans-input').value = val;
     }
 
     function smartParse() {
@@ -242,12 +261,15 @@
         if (typeStr) {
             if (typeStr.includes('单选')) qTypeSelect.value = 'objective';
             else if (typeStr.includes('多选')) qTypeSelect.value = 'multi';
+            else if (typeStr.includes('判断')) qTypeSelect.value = 'true_false';
             else if (typeStr.includes('填空')) qTypeSelect.value = 'fill';
             else if (typeStr.includes('主观') || typeStr.includes('解答')) qTypeSelect.value = 'subjective';
             filledFields++;
         } else {
             // Auto guess
-            if (a || b || c || d) {
+            if (ans && (ans === '对' || ans === '错' || ans === '正确' || ans === '错误' || ans === '√' || ans === '×')) {
+                qTypeSelect.value = 'true_false';
+            } else if (a || b || c || d) {
                 qTypeSelect.value = (ans && ans.length > 1 && !ans.includes('选项')) ? 'multi' : 'objective';
             } else if (!qTypeSelect.value || qTypeSelect.value === 'objective') {
                 qTypeSelect.value = 'subjective';

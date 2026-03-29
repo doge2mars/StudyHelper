@@ -1,3 +1,4 @@
+static/uploads/
 data/
 *.db
 __pycache__/

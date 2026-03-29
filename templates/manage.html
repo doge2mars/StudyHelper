@@ -122,6 +122,7 @@
                             <span class="badge" style="background: rgba(0,0,0,0.05); font-size: 0.75rem;">
                                 {% if q.question_type == 'objective' %}单选
                                 {% elif q.question_type == 'multi' %}多选
+                                {% elif q.question_type == 'true_false' %}判断
                                 {% elif q.question_type == 'fill' %}填空
                                 {% else %}大题{% endif %}
                             </span>

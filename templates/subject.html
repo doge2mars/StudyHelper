@@ -25,6 +25,7 @@
                 <option value="all">📦 全部题型</option>
                 <option value="single">🔘 单选题</option>
                 <option value="multi">☑️ 多选题</option>
+                <option value="true_false">❓ 判断题</option>
                 <option value="fill">📝 填空题</option>
                 <option value="essay">📑 大题</option>
             </select>
@@ -113,6 +114,7 @@
                     <span style="font-size: 0.85rem; opacity: 0.7;">
                         {% if q.question_type == 'objective' %}单选
                         {% elif q.question_type == 'multi' %}多选
+                        {% elif q.question_type == 'true_false' %}判断
                         {% elif q.question_type == 'fill' %}填空
                         {% else %}大题{% endif %}
                     </span>

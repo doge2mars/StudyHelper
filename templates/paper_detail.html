@@ -49,6 +49,7 @@
                 <span>
                     {% if q.question_type == 'objective' %}单选题
                     {% elif q.question_type == 'multi' %}多选题
+                    {% elif q.question_type == 'true_false' %}判断题
                     {% elif q.question_type == 'fill' %}填空题
                     {% elif q.question_type == 'subjective' %}主观题
                     {% else %}其他{% endif %}

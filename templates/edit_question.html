@@ -35,6 +35,7 @@
                 <select name="q_type" id="q_type" onchange="toggleOptions()">
                     <option value="objective" {% if q.question_type=='objective' %}selected{% endif %}>单选题</option>
                     <option value="multi" {% if q.question_type=='multi' %}selected{% endif %}>多选题</option>
+                    <option value="true_false" {% if q.question_type=='true_false' %}selected{% endif %}>判断题</option>
                     <option value="fill" {% if q.question_type=='fill' %}selected{% endif %}>填空题</option>
                     <option value="subjective" {% if q.question_type=='subjective' %}selected{% endif %}>主观题/解答题
                     </option>
@@ -42,7 +43,11 @@
             </div>
             <div class="form-group">
                 <label>标准答案</label>
-                <input type="text" name="ans" placeholder="例: A 或 ABCD" value="{{ q.correct_answer }}">
+                <div id="tf-options" style="display:none; gap:10px; margin-bottom:10px;">
+                    <button type="button" class="btn" onclick="setTF('对')" style="background:rgba(0,184,148,0.1); color:var(--success); border:1px solid var(--success); flex:1">对 (√)</button>
+                    <button type="button" class="btn" onclick="setTF('错')" style="background:rgba(214,48,49,0.1); color:var(--danger); border:1px solid var(--danger); flex:1">错 (×)</button>
+                </div>
+                <input type="text" name="ans" id="ans-input" placeholder="例: A 或 ABCD" value="{{ q.correct_answer }}">
             </div>
         </div>
 
@@ -274,7 +279,21 @@
     function toggleOptions() {
         const type = document.getElementById('q_type').value;
         const section = document.getElementById('options-section');
+        const tfOptions = document.getElementById('tf-options');
+        const ansInput = document.getElementById('ans-input');
+
         section.style.display = (type === 'objective' || type === 'multi') ? 'grid' : 'none';
+        tfOptions.style.display = (type === 'true_false') ? 'flex' : 'none';
+
+        if (type === 'true_false') {
+            ansInput.placeholder = "填 '对' 或 '错'";
+        } else {
+            ansInput.placeholder = "例: A 或 ABCD";
+        }
+    }
+
+    function setTF(val) {
+        document.getElementById('ans-input').value = val;
     }
     toggleOptions();
 
